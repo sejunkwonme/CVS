@@ -1,120 +1,22 @@
 {
-  "version": 6,
-  "cmakeMinimumRequired": {
-      "major": 3,
-      "minor": 26,
-      "patch": 0
-    },
+  "version": 3,
   "configurePresets": [
     {
-      "name": "LinuxDebug",
-      "displayName": "Linux-Debug",
-      "description": "리눅스 시스템에서의 디버그 설정 프리셋",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "QT_CREATOR_SKIP_MAINTENANCE_TOOL_PROVIDER": "ON"},
-      "environment": {"LD_LIBRARY_PATH": "/home/sejunkwon/Qt/6.9.2/gcc_64/lib:$penv{LD_LIBRARY_PATH}"},
-      "condition": {
-              "type": "equals",
-              "lhs": "${hostSystemName}",
-              "rhs": "Linux"
-      }
-    },
-    {
-      "name": "LinuxRelease",
-      "displayName": "Linux-Release",
-      "description": "리눅스 시스템에서의 릴리즈 설정 프리셋",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "QT_CREATOR_SKIP_MAINTENANCE_TOOL_PROVIDER": "ON" },
-      "environment": {"LD_LIBRARY_PATH": "/home/sejunkwon/Qt/6.9.2/gcc_64/lib:$penv{LD_LIBRARY_PATH}"},
-      "condition": {
-              "type": "equals",
-              "lhs": "${hostSystemName}",
-              "rhs": "Linux"
-      }
-    },
-    {
-      "name": "MacOsDebug",
-      "displayName": "macOS-Debug",
-      "description": "macOS에서의 디버그 설정 프리셋",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" },
-      "condition": {
-              "type": "equals",
-              "lhs": "${hostSystemName}",
-              "rhs": "Darwin"
-      }
-    },
-    {
-      "name": "MacOsRelease",
-      "displayName": "macOS-Release",
-      "description": "macOS에서의 릴리즈 설정 프리셋",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
-      "condition": {
-              "type": "equals",
-              "lhs": "${hostSystemName}",
-              "rhs": "Darwin"
-      }
-    },
-    {
-      "name": "windows-base",
-      "description": "Visual Studio 개발 환경을 사용하여 Windows를 대상으로 지정합니다.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "installDir": "${sourceDir}/out/install/${presetName}",
+      "hidden": true,
+      "name": "Qt",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
+        "CMAKE_PREFIX_PATH": "$env{QTDIR}"
       },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
+      "vendor": {
+        "qt-project.org/Qt": {
+          "checksum": "wVa86FgEkvdCTVp1/nxvrkaemJc="
+        }
       }
-    },
-    {
-      "name": "x64-debug",
-      "displayName": "x64 Debug",
-      "description": "Visual Studio 개발 환경을 사용하여 Windows(64비트)를 대상으로 지정합니다. (Debug)",
-      "inherits": "windows-base",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-    },
-    {
-      "name": "x64-release",
-      "displayName": "x64 Release",
-      "description": "Visual Studio 개발 환경을 사용하여 Windows(64비트)를 대상으로 지정합니다. (RelWithDebInfo)",
-      "inherits": "x64-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
-    },
-    {
-      "name": "x86-debug",
-      "displayName": "x86 Debug",
-      "description": "Visual Studio 개발 환경을 사용하여 Windows(32비트)를 대상으로 지정합니다. (Debug)",
-      "inherits": "windows-base",
-      "architecture": {
-        "value": "x86",
-        "strategy": "external"
-      },
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
-    },
-    {
-      "name": "x86-release",
-      "displayName": "x86 Release",
-      "description": "Visual Studio 개발 환경을 사용하여 Windows(32비트)를 대상으로 지정합니다. (RelWithDebInfo)",
-      "inherits": "x86-debug",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
     }
-  ]
+  ],
+  "vendor": {
+    "qt-project.org/Presets": {
+      "checksum": "67SmY24ZeVbebyKD0fGfIzb/bGI="
+    }
+  }
 }

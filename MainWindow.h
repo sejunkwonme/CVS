@@ -28,7 +28,7 @@ private:
     void initUI();
     void createActions();
     void populateSavedList();
-
+    
 private slots:
     void showCameraInfo();
     void takePhoto();
