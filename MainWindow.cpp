@@ -9,6 +9,8 @@
 #include <QGridLayout>
 #include <QIcon>
 #include <QStandardItem>
+#include <qfilesystemmodel>
+#include <QDir>
 #include "MainWindow.h"
 #include "Utilities.h"
 
@@ -22,27 +24,51 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::initUI() {
-    this->resize(1280, 1024);
-    //setup menubar
-    fileMenu = menuBar()->addMenu("&File");
+    // MainWindow 의 크기 변경 및 맨위 메뉴바에서 드롭다운 메뉴 한 개 만들기
+    this->setFixedSize(1600, 900);
+    fileMenu = menuBar()->addMenu("&Menu");
 
-    QGridLayout* main_layout = new QGridLayout();
-    imageScene = new QGraphicsScene(this);
-    imageView = new QGraphicsView(imageScene);
-    main_layout->addWidget(imageView, 0, 0, 12, 1);
+    // 맨 밑의 status bar 생성
+    mainStatusBar = statusBar();
+    mainStatusLabel = new QLabel(mainStatusBar);
+    mainStatusBar->addPermanentWidget(mainStatusLabel);
+    mainStatusLabel->setText("CVS is Ready");
 
-    QGridLayout* tools_layout = new QGridLayout();
-    main_layout->addLayout(tools_layout, 12, 0, 1, 1);
+    // MainWindow 내부의 레이아웃 생성 및 기타 위젯 생성
+    QBoxLayout* main_layout = new QBoxLayout(QBoxLayout::TopToBottom); // 세로 박스 레이아웃
+    QBoxLayout* cam_sub_layout = new QBoxLayout(QBoxLayout::LeftToRight); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
 
     shutterButton = new QPushButton(this);
     shutterButton->setText("Take a Photo");
-    tools_layout->addWidget(shutterButton, 0, 0, Qt::AlignHCenter);
+
+    QBoxLayout* tools_sub_layout = new QBoxLayout(QBoxLayout::LeftToRight); // 버튼 도구들을 담는 서브레이아웃
+    
+    QListView* topview = new QListView(this);
+    imageScene = new QGraphicsScene(this);
+    imageView = new QGraphicsView(imageScene);
+    QListView* rightview = new QListView(this);
+    QListView* bottomView = new QListView(this);
+
+    main_layout->addWidget(topview);
+    cam_sub_layout->addWidget(imageView);
+    cam_sub_layout->addWidget(rightview);
+    tools_sub_layout->addWidget(shutterButton, 0, Qt::AlignHCenter);
+    main_layout->addLayout(cam_sub_layout);
+    main_layout->addLayout(tools_sub_layout);
+    main_layout->addWidget(bottomView);
+
+    main_layout->setStretch(0, 1);
+    main_layout->setStretch(1, 4);
+    main_layout->setStretch(2, 1);
+    main_layout->setStretch(3, 1);
+    cam_sub_layout->setStretch(0, 4);
+    cam_sub_layout->setStretch(1, 1);
+
     connect(shutterButton, SIGNAL(clicked(bool)), this, SLOT(takePhoto()));
 
-    // list of saved videos
+    // 밑 view
+    /*
     saved_list = new QListView(this);
-    main_layout->addWidget(saved_list, 13, 0, 4, 1);
-
     saved_list = new QListView(this);
     saved_list->setViewMode(QListView::IconMode);
     saved_list->setResizeMode(QListView::Adjust);
@@ -50,19 +76,16 @@ void MainWindow::initUI() {
     saved_list->setWrapping(false);
     list_model = new QStandardItemModel(this);
     saved_list->setModel(list_model);
-    main_layout->addWidget(saved_list, 13, 0, 4, 1);
+    main_layout->addWidget(saved_list, 11, 0, 2, 1);
+    */
 
-    QWidget* widget = new QWidget();
-    widget->setLayout(main_layout);
-    setCentralWidget(widget);
-
-    // setup status bar
-    mainStatusBar = statusBar();
-    mainStatusLabel = new QLabel(mainStatusBar);
-    mainStatusBar->addPermanentWidget(mainStatusLabel);
-    mainStatusLabel->setText("Facetious is Ready");
-
+    // 맨 위 메뉴 바의 Action 생성한다.
     createActions();
+
+    // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
+    QWidget* centralWidget = new QWidget(this);
+    centralWidget->setLayout(main_layout);
+    setCentralWidget(centralWidget);
 }
 
 void MainWindow::createActions() {
@@ -92,8 +115,7 @@ void MainWindow::showCameraInfo() {
     QMessageBox::information(this, "Cameras", info);
 }
 
-void MainWindow::openCamera()
-{
+void MainWindow::openCamera() {
     if(capturer != nullptr) {
         // if a thread is already running, stop it
         capturer->setRunning(false);

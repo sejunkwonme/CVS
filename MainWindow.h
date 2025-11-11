@@ -18,8 +18,9 @@
 #include "opencv2/opencv.hpp"
 #include "CaptureThread.h"
 
+
 class MainWindow : public QMainWindow {
-    Q_OBJECT
+Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
@@ -34,15 +35,20 @@ private slots:
     void takePhoto();
 
 private:
+    // 메인윈도우의 메뉴, 액션 정의
     QMenu* fileMenu;
-
     QAction* cameraInfoAction;
     QAction* openCameraAction;
     QAction* exitAction;
+
+    // 카메라 캡처를 표시할 그래픽 객체 정의
     QGraphicsScene* imageScene;
     QGraphicsView* imageView;
+
+    // 버튼 정의
     QPushButton* shutterButton;
-    QListView* saved_list;
+
+    // statusbar과 그 안에 쓰일 label 정의
     QStatusBar* mainStatusBar;
     QLabel* mainStatusLabel;
 
@@ -59,6 +65,9 @@ private slots:
     void openCamera();
     void updateFrame(cv::Mat*);
     void appendSavedPhoto(QString name);
+
+private:
+    QPushButton* testbutton;
 };
 
 #endif // MAINWINDOW_H

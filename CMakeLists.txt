@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.31)
 project(CVS VERSION 0.1 LANGUAGES CXX CUDA)
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(OpenCV_DIR "D:/Library/opencv4110_debug/x64/vc17/staticlib")
 add_definitions(-DOpenCV_STATIC)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia Concurrent)
+find_package(Qt${QT_VERSION_MAJOR}
+REQUIRED COMPONENTS Widgets Multimedia Concurrent)
 find_package(OpenCV REQUIRED)
 find_package(TBB REQUIRED)
-find_package(CUDAToolkit REQUIRED)           # CMake 3.17+
+find_package(CUDAToolkit REQUIRED)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
