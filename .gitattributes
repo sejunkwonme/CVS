@@ -1,0 +1,21 @@
+# 모든 텍스트 파일은 OS별로 적절히 변환
+* text=auto
+
+# C/C++/Qt 소스는 항상 LF 유지 (Windows에서도)
+*.cpp text eol=lf
+*.h   text eol=lf
+*.hpp text eol=lf
+*.qml text eol=lf
+*.py  text eol=lf
+*.sh  text eol=lf
+
+# 배치 스크립트만 CRLF 유지
+*.bat text eol=crlf
+
+# 바이너리 파일은 변환하지 않음
+*.png binary
+*.jpg binary
+*.exe binary
+*.dll binary
+*.pdb binary
+*.lib binary
