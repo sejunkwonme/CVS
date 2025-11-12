@@ -16,7 +16,7 @@
 #include <QStandardItemModel>
 
 #include "opencv2/opencv.hpp"
-#include "CaptureThread.h"
+#include "Capture.h"
 
 
 class MainWindow : public QMainWindow {
@@ -52,12 +52,14 @@ private:
     QStatusBar* mainStatusBar;
     QLabel* mainStatusLabel;
 
+    QListView* saved_list;
+
 private:
     cv::Mat currentFrame;
 
     // for capture thread
     QMutex* data_lock;
-    CaptureThread* capturer;
+    Capture* capturer;
 
     QStandardItemModel *list_model;
 

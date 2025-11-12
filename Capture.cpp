@@ -1,4 +1,4 @@
-#include "CaptureThread.h"
+#include "Capture.h"
 #include <QElapsedTimer>
 #include <QtConcurrent>
 #include <QDebug>
@@ -6,7 +6,7 @@
 
 using namespace std;
 
-CaptureThread::CaptureThread(int camera, QMutex* lock) : running(false), cameraID(camera), videoPath(""), data_lock(lock), taking_photo(false) {
+Capture::Capture(int camera, QMutex* lock, QObject* parent) : running(false), cameraID(camera), videoPath(""), data_lock(lock), taking_photo(false) {
     // 1) CUDA디바이스 스캔
     int device_count = 0;
     cudaGetDeviceCount(&device_count);
@@ -78,15 +78,15 @@ CaptureThread::CaptureThread(int camera, QMutex* lock) : running(false), cameraI
     qDebug() << "YOLOv1 ONNX model ready.";
 }
 
-CaptureThread::CaptureThread(QString videoPath, QMutex* lock) : running(false), cameraID(-1), videoPath(videoPath), data_lock(lock), taking_photo(false) {
+Capture::Capture(QString videoPath, QMutex* lock) : running(false), cameraID(-1), videoPath(videoPath), data_lock(lock), taking_photo(false) {
 }
 
-CaptureThread::~CaptureThread() {
+Capture::~Capture() {
     delete ort_session;
     ort_session = nullptr;
 }
 
-void CaptureThread::run() {
+void Capture::captureLoop() {
     running = true;
     cv::VideoCapture cap(cameraID, cv::CAP_MSMF);
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
@@ -128,7 +128,7 @@ void CaptureThread::run() {
     running = false;
 }
 
-void CaptureThread::takePhoto(cv::Mat& frame) {
+void Capture::takePhoto(cv::Mat& frame) {
     QString photo_name = Utilities::newPhotoName();
     QString photo_path = Utilities::getPhotoPath(photo_name, "jpg");
     cv::imwrite(photo_path.toStdString(), frame);
@@ -136,7 +136,7 @@ void CaptureThread::takePhoto(cv::Mat& frame) {
     taking_photo = false;
 }
 
-void CaptureThread::detectFaces(cv::Mat& frame) {
+void Capture::detectFaces(cv::Mat& frame) {
     vector<cv::Rect> faces;
     cv::Mat gray_frame;
     cv::cvtColor(frame, gray_frame, cv::COLOR_BGR2GRAY);
@@ -148,7 +148,7 @@ void CaptureThread::detectFaces(cv::Mat& frame) {
     }
 }
 
-void CaptureThread::detectObjects(cv::Mat& frame) {
+void Capture::detectObjects(cv::Mat& frame) {
     // --- 전처리 ---
     //cv::Mat rgb;
     //cv::cvtColor(frame, rgb, cv::COLOR_BGR2RGB);

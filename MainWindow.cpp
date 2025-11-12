@@ -25,7 +25,7 @@ MainWindow::~MainWindow() {
 
 void MainWindow::initUI() {
     // MainWindow 의 크기 변경 및 맨위 메뉴바에서 드롭다운 메뉴 한 개 만들기
-    this->setFixedSize(1600, 900);
+    this->setFixedSize(1920, 1080);
     fileMenu = menuBar()->addMenu("&Menu");
 
     // 맨 밑의 status bar 생성
@@ -48,6 +48,12 @@ void MainWindow::initUI() {
     imageView = new QGraphicsView(imageScene);
     QListView* rightview = new QListView(this);
     QListView* bottomView = new QListView(this);
+    
+    QFileSystemModel* file_model = new QFileSystemModel(this);
+    file_model->setRootPath(QDir::rootPath());
+    file_model->setFilter(QDir::AllEntries | QDir::NoDotAndDotDot);
+    bottomView->setModel(file_model);
+    connect(bottomView, &QListView::doubleClicked, this, &FileExplorer::onItemDoubleClicked);
 
     main_layout->addWidget(topview);
     cam_sub_layout->addWidget(imageView);
@@ -66,9 +72,6 @@ void MainWindow::initUI() {
 
     connect(shutterButton, SIGNAL(clicked(bool)), this, SLOT(takePhoto()));
 
-    // 밑 view
-    /*
-    saved_list = new QListView(this);
     saved_list = new QListView(this);
     saved_list->setViewMode(QListView::IconMode);
     saved_list->setResizeMode(QListView::Adjust);
@@ -76,8 +79,8 @@ void MainWindow::initUI() {
     saved_list->setWrapping(false);
     list_model = new QStandardItemModel(this);
     saved_list->setModel(list_model);
-    main_layout->addWidget(saved_list, 11, 0, 2, 1);
-    */
+    main_layout->addWidget(saved_list);
+
 
     // 맨 위 메뉴 바의 Action 생성한다.
     createActions();
@@ -119,16 +122,16 @@ void MainWindow::openCamera() {
     if(capturer != nullptr) {
         // if a thread is already running, stop it
         capturer->setRunning(false);
-        disconnect(capturer, &CaptureThread::frameCaptured, this, &MainWindow::updateFrame);
-        disconnect(capturer, &CaptureThread::photoTaken, this, &MainWindow::appendSavedPhoto);
-        connect(capturer, &CaptureThread::finished, capturer, &CaptureThread::deleteLater);
+        disconnect(capturer, &Capture::frameCaptured, this, &MainWindow::updateFrame);
+        disconnect(capturer, &Capture::photoTaken, this, &MainWindow::appendSavedPhoto);
+        connect(capturer, &Capture::finished, capturer, &Capture::deleteLater);
     }
     // I am using my second camera whose Index is 2.  Usually, the
     // Index of the first camera is 0.
     int camID = 0;
-    capturer = new CaptureThread(camID, data_lock);
-    connect(capturer, &CaptureThread::frameCaptured, this, &MainWindow::updateFrame);
-    connect(capturer, &CaptureThread::photoTaken, this, &MainWindow::appendSavedPhoto);
+    capturer = new Capture(camID, data_lock);
+    connect(capturer, &Capture::frameCaptured, this, &MainWindow::updateFrame);
+    connect(capturer, &Capture::photoTaken, this, &MainWindow::appendSavedPhoto);
     capturer->start();
     mainStatusLabel->setText(QString("Capturing Camera %1").arg(camID));
 }
@@ -185,17 +188,3 @@ void MainWindow::takePhoto() {
         capturer->takePhoto();
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

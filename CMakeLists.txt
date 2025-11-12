@@ -20,8 +20,10 @@ set(CMAKE_AUTORCC ON)
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     MainWindow.h MainWindow.cpp
-    CaptureThread.h CaptureThread.cpp
+    Capture.h Capture.cpp
     Utilities.h Utilities.cpp
+    Inference.h Inference.cpp
+    Calibration.h Calibration.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
