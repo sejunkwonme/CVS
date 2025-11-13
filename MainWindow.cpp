@@ -47,13 +47,15 @@ void MainWindow::initUI() {
     imageScene = new QGraphicsScene(this);
     imageView = new QGraphicsView(imageScene);
     QListView* rightview = new QListView(this);
-    QListView* bottomView = new QListView(this);
-    
-    QFileSystemModel* file_model = new QFileSystemModel(this);
-    file_model->setRootPath(QDir::rootPath());
-    file_model->setFilter(QDir::AllEntries | QDir::NoDotAndDotDot);
-    bottomView->setModel(file_model);
-    connect(bottomView, &QListView::doubleClicked, this, &FileExplorer::onItemDoubleClicked);
+    //QListView* bottomView = new QListView(this);
+
+    explorerModel_ = new FolderModel(this);
+    explorerView_ = new FolderView(this);
+    explorerView_->setModel(explorerModel_);
+
+    connect(explorerView_, &FolderView::fileOpened, this, &MainWindow::onFileOpend);
+    connect(explorerView_, &FolderView::directoryEntered, this, &MainWindow::onDirectoryEntered);
+
 
     main_layout->addWidget(topview);
     cam_sub_layout->addWidget(imageView);
@@ -61,7 +63,7 @@ void MainWindow::initUI() {
     tools_sub_layout->addWidget(shutterButton, 0, Qt::AlignHCenter);
     main_layout->addLayout(cam_sub_layout);
     main_layout->addLayout(tools_sub_layout);
-    main_layout->addWidget(bottomView);
+    main_layout->addWidget(explorerView_);
 
     main_layout->setStretch(0, 1);
     main_layout->setStretch(1, 4);
@@ -187,4 +189,12 @@ void MainWindow::takePhoto() {
     if(capturer != nullptr) {
         capturer->takePhoto();
     }
+}
+
+void MainWindow::onFileOpend(const QString& path) {
+    qDebug() << "File open requested:" << path;
+}
+
+void MainWindow::onDirectoryEntered(const QString& path) {
+    qDebug() << "Entered directory:" << path;
 }

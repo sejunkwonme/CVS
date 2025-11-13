@@ -17,6 +17,8 @@
 
 #include "opencv2/opencv.hpp"
 #include "Capture.h"
+#include "FolderModel.h"
+#include "FolderView.h"
 
 
 class MainWindow : public QMainWindow {
@@ -70,6 +72,14 @@ private slots:
 
 private:
     QPushButton* testbutton;
+
+private:
+    FolderModel* explorerModel_;
+    FolderView* explorerView_;
+
+private slots:
+    void onFileOpend(const QString& path);
+    void onDirectoryEntered(const QString& path);
 };
 
 #endif // MAINWINDOW_H

@@ -136,18 +136,6 @@ void Capture::takePhoto(cv::Mat& frame) {
     taking_photo = false;
 }
 
-void Capture::detectFaces(cv::Mat& frame) {
-    vector<cv::Rect> faces;
-    cv::Mat gray_frame;
-    cv::cvtColor(frame, gray_frame, cv::COLOR_BGR2GRAY);
-    classifier->detectMultiScale(gray_frame, faces, 1.3, 5);
-
-    cv::Scalar color = cv::Scalar(0, 0, 255);
-    for (size_t i = 0; i < faces.size(); i++) {
-        cv::rectangle(frame, faces[i], color, 1);
-    }
-}
-
 void Capture::detectObjects(cv::Mat& frame) {
     // --- 전처리 ---
     //cv::Mat rgb;
@@ -250,3 +238,11 @@ void Capture::detectObjects(cv::Mat& frame) {
         }
     }
 }
+
+void Capture::start() {
+}
+
+void Capture::stop() {
+	
+}
+

@@ -1,5 +1,4 @@
-#ifndef CAPTURETHREAD_H
-#define CAPTURETHREAD_H
+#pragma once
 
 #include <QObject>
 #include <QMutex>
@@ -56,11 +55,8 @@ private:
 
 private:
     void takePhoto(cv::Mat& frame);
-    void detectFaces(cv::Mat& frame);
 
 
-    // video saving
+	// video saving
     // int frame_width, frame_height;
 };
-
-#endif // CAPTURETHREAD_H
