@@ -7,16 +7,41 @@
 #include <QMediaDevices>
 #include <QCameraDevice>
 #include <QGridLayout>
+#include <QGraphicsView>
+#include <QAction>
+#include <QGraphicsScene>
+#include <QMenuBar>
+#include <QLabel>
+#include <QStatusBar>
 #include <QIcon>
 #include <QStandardItem>
 #include <qfilesystemmodel>
 #include <QDir>
-#include "MainWindow.h"
-#include "Utilities.h"
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), fileMenu(nullptr), capturer(nullptr) {
+#include <opencv2/opencv.hpp>
+
+#include "MainWindow.h"
+
+MainWindow::MainWindow(QWidget* parent)
+: QMainWindow(parent),
+fileMenu_(nullptr),
+cameraInfoAction_(nullptr),
+openCameraAction_(nullptr),
+exitAction_(nullptr),
+mainStatusBar_(nullptr),
+mainStatusLabel_(nullptr),
+imageScene_(nullptr),
+imageView_(nullptr),
+capButton_(nullptr),
+currentFrame_(),
+data_lock_(new QMutex()),
+captureThread_(nullptr),
+inferenceThread_(nullptr),
+captureWorker_(nullptr),
+inferenceWorker_(nullptr),
+explorerModel_(nullptr),
+explorerView_(nullptr) {
     initUI();
-    data_lock = new QMutex();
 }
 
 MainWindow::~MainWindow() {
@@ -26,45 +51,57 @@ MainWindow::~MainWindow() {
 void MainWindow::initUI() {
     // MainWindow 의 크기 변경 및 맨위 메뉴바에서 드롭다운 메뉴 한 개 만들기
     this->setFixedSize(1920, 1080);
-    fileMenu = menuBar()->addMenu("&Menu");
+    fileMenu_ = menuBar()->addMenu("&Menu");
+    // 맨 위 메뉴 바의 Action 생성한다.
+    createActions();
 
     // 맨 밑의 status bar 생성
-    mainStatusBar = statusBar();
-    mainStatusLabel = new QLabel(mainStatusBar);
-    mainStatusBar->addPermanentWidget(mainStatusLabel);
-    mainStatusLabel->setText("CVS is Ready");
+    mainStatusBar_ = statusBar();
+    mainStatusLabel_ = new QLabel(mainStatusBar_);
+    mainStatusBar_->addPermanentWidget(mainStatusLabel_);
+    mainStatusLabel_->setText("CVS is Ready");
 
     // MainWindow 내부의 레이아웃 생성 및 기타 위젯 생성
-    QBoxLayout* main_layout = new QBoxLayout(QBoxLayout::TopToBottom); // 세로 박스 레이아웃
-    QBoxLayout* cam_sub_layout = new QBoxLayout(QBoxLayout::LeftToRight); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
-
-    shutterButton = new QPushButton(this);
-    shutterButton->setText("Take a Photo");
-
-    QBoxLayout* tools_sub_layout = new QBoxLayout(QBoxLayout::LeftToRight); // 버튼 도구들을 담는 서브레이아웃
-    
+    QBoxLayout* main_layout = new QVBoxLayout(); // 세로 박스 레이아웃
+    QBoxLayout* cam_sub_layout = new QHBoxLayout(); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
+    QBoxLayout* tools_sub_layout = new QHBoxLayout(); // 버튼 도구들을 담는 서브레이아웃
     QListView* topview = new QListView(this);
-    imageScene = new QGraphicsScene(this);
-    imageView = new QGraphicsView(imageScene);
     QListView* rightview = new QListView(this);
-    //QListView* bottomView = new QListView(this);
+
+    imageScene_ = new QGraphicsScene(this);
+    imageView_ = new QGraphicsView(imageScene_);
+
+    capButton_ = new QPushButton("Toggle", this);
+    capButton_->setText("Start Capture");
+    capButton_->setCheckable(true);
+    connect(capButton_, &QPushButton::toggled, this,
+        [=](bool checked) {
+            if (checked) {
+                emit startCameraRequest();
+                capButton_->setText("Stop Camera");
+            }
+            else {
+                emit stopcameraRequest();
+                capButton_->setText("Start Camera");
+            }
+        }
+    );
 
     explorerModel_ = new FolderModel(this);
     explorerView_ = new FolderView(this);
     explorerView_->setModel(explorerModel_);
-
     connect(explorerView_, &FolderView::fileOpened, this, &MainWindow::onFileOpend);
     connect(explorerView_, &FolderView::directoryEntered, this, &MainWindow::onDirectoryEntered);
 
+    //QListView* bottomView = new QListView(this);
 
     main_layout->addWidget(topview);
-    cam_sub_layout->addWidget(imageView);
+    cam_sub_layout->addWidget(imageView_);
     cam_sub_layout->addWidget(rightview);
-    tools_sub_layout->addWidget(shutterButton, 0, Qt::AlignHCenter);
+    tools_sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
     main_layout->addLayout(cam_sub_layout);
     main_layout->addLayout(tools_sub_layout);
     main_layout->addWidget(explorerView_);
-
     main_layout->setStretch(0, 1);
     main_layout->setStretch(1, 4);
     main_layout->setStretch(2, 1);
@@ -72,8 +109,11 @@ void MainWindow::initUI() {
     cam_sub_layout->setStretch(0, 4);
     cam_sub_layout->setStretch(1, 1);
 
-    connect(shutterButton, SIGNAL(clicked(bool)), this, SLOT(takePhoto()));
+    //connect(shutterButton_, SIGNAL(clicked(bool)), this, SLOT(takePhoto()));
+    connect(this, &MainWindow::startCameraRequest, this, &MainWindow::openCamera);
+    connect(this, &MainWindow::stopcameraRequest, this, &MainWindow::closeCamera);
 
+    /*
     saved_list = new QListView(this);
     saved_list->setViewMode(QListView::IconMode);
     saved_list->setResizeMode(QListView::Adjust);
@@ -82,10 +122,7 @@ void MainWindow::initUI() {
     list_model = new QStandardItemModel(this);
     saved_list->setModel(list_model);
     main_layout->addWidget(saved_list);
-
-
-    // 맨 위 메뉴 바의 Action 생성한다.
-    createActions();
+	*/
 
     // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
     QWidget* centralWidget = new QWidget(this);
@@ -94,18 +131,18 @@ void MainWindow::initUI() {
 }
 
 void MainWindow::createActions() {
-    // create actions, add them to menus
-    cameraInfoAction = new QAction("Camera &Information", this);
-    fileMenu->addAction(cameraInfoAction);
-    openCameraAction = new QAction("&Open Camera", this);
-    fileMenu->addAction(openCameraAction);
-    exitAction = new QAction("E&xit", this);
-    fileMenu->addAction(exitAction);
+    // 맨 위 메뉴바의 액션을 생성하여 시그널 슬롯 연결
+    cameraInfoAction_ = new QAction("Camera &Information", this);
+    fileMenu_->addAction(cameraInfoAction_);
+    openCameraAction_ = new QAction("&Open Camera", this);
+    fileMenu_->addAction(openCameraAction_);
+    exitAction_ = new QAction("E&xit", this);
+    fileMenu_->addAction(exitAction_);
 
     // connect the signals and slots
-    connect(exitAction, SIGNAL(triggered(bool)), QApplication::instance(), SLOT(quit()));
-    connect(cameraInfoAction, SIGNAL(triggered(bool)), this, SLOT(showCameraInfo()));
-    connect(openCameraAction, SIGNAL(triggered(bool)), this, SLOT(openCamera()));
+    connect(exitAction_, &QAction::triggered, QApplication::instance(), &QApplication::quit);
+    connect(cameraInfoAction_, &QAction::triggered, this, &MainWindow::showCameraInfo);
+    connect(openCameraAction_, &QAction::triggered, this, &MainWindow::openCamera);
 }
 
 void MainWindow::showCameraInfo() {
@@ -121,43 +158,103 @@ void MainWindow::showCameraInfo() {
 }
 
 void MainWindow::openCamera() {
-    if(capturer != nullptr) {
-        // if a thread is already running, stop it
-        capturer->setRunning(false);
-        disconnect(capturer, &Capture::frameCaptured, this, &MainWindow::updateFrame);
-        disconnect(capturer, &Capture::photoTaken, this, &MainWindow::appendSavedPhoto);
-        connect(capturer, &Capture::finished, capturer, &Capture::deleteLater);
-    }
-    // I am using my second camera whose Index is 2.  Usually, the
-    // Index of the first camera is 0.
     int camID = 0;
-    capturer = new Capture(camID, data_lock);
-    connect(capturer, &Capture::frameCaptured, this, &MainWindow::updateFrame);
-    connect(capturer, &Capture::photoTaken, this, &MainWindow::appendSavedPhoto);
-    capturer->start();
-    mainStatusLabel->setText(QString("Capturing Camera %1").arg(camID));
+    captureThread_ = new QThread(this);
+    captureWorker_ = new Capture(camID, data_lock_);
+
+    // movetoThread로 스레드에 QObject 작업 할당
+    captureWorker_->moveToThread(captureThread_);
+
+    // 시그널 슬롯 연결
+    connect(captureThread_, &QThread::started, captureWorker_, &Capture::start);
+    connect(captureWorker_, &Capture::frameCaptured, this, &MainWindow::updateFrame);
+    connect(captureWorker_, &Capture::capfinished, captureThread_, &QThread::quit);
+    connect(captureWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
+    connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
+
+    // 스레드 시작
+    captureThread_->start();
+
+    mainStatusLabel_->setText(QString("Capturing Camera %1").arg(camID));
+}
+
+void MainWindow::closeCamera() {
+    if (!captureWorker_ || !captureThread_)
+        return;
+
+    // 1) 캡처 중단 요청
+    QMetaObject::invokeMethod(captureWorker_, &Capture::stop, Qt::QueuedConnection);
+
+    // 2) 종료 시그널 capfinished() -> quit -> deleteLater()  
+    //    이미 연결되어 있으므로 추가 코드 필요 없음
+
+    mainStatusLabel_->setText("Camera closed");
+}
+
+void MainWindow::startInference() {
+    inferenceThread_ = new QThread(this);
+    inferenceWorker_ = new Inference(data_lock_);
+
+    // movetoThread로 스레드에 QObject 작업 할당
+    inferenceWorker_->moveToThread(inferenceThread_);
+
+    // 시그널 슬롯 연결
+    connect(captureWorker_, &Capture::callInference, inferenceWorker_, &Inference::runInference);
+    connect(inferenceWorker_, &Capture::frameCaptured, this, &MainWindow::updateFrame);
+    connect(inferenceWorker_, &Capture::capfinished, captureThread_, &QThread::quit);
+    connect(inferenceWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
+    connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
+
+    // 스레드 시작
+    captureThread_->start();
+
+    mainStatusLabel_->setText(QString("Capturing Camera %1").arg(camID));
+}
+
+void MainWindow::stopInference() {
+	
 }
 
 void MainWindow::updateFrame(cv::Mat *mat) {
-    data_lock->lock();
-    currentFrame = *mat;
-    data_lock->unlock();
+    data_lock_->lock();
+    currentFrame_ = *mat;
+    data_lock_->unlock();
 
     QImage frame(
-        currentFrame.data,
-        currentFrame.cols,
-        currentFrame.rows,
-        currentFrame.step,
+        currentFrame_.data,
+        currentFrame_.cols,
+        currentFrame_.rows,
+        currentFrame_.step,
         QImage::Format_RGB888);
     QPixmap image = QPixmap::fromImage(frame);
 
-    imageScene->clear();
-    imageView->resetTransform();
-    imageScene->addPixmap(image);
-    imageScene->update();
-    imageView->setSceneRect(image.rect());
+    imageScene_->clear();
+    imageView_->resetTransform();
+    imageScene_->addPixmap(image);
+    imageScene_->update();
+    imageView_->setSceneRect(image.rect());
 }
 
+
+/*
+void MainWindow::takePhoto() {
+    if(captureWorker_ != nullptr) {
+        captureWorker_->takePhoto();
+    }
+}
+*/
+
+void MainWindow::onFileOpend(const QString& path) {
+    qDebug() << "File open requested:" << path;
+}
+
+void MainWindow::onDirectoryEntered(const QString& path) {
+    qDebug() << "Entered directory:" << path;
+}
+
+
+
+/*
 void MainWindow::populateSavedList() {
     QDir dir(Utilities::getDataPath());
     QStringList nameFilters;
@@ -174,7 +271,9 @@ void MainWindow::populateSavedList() {
         list_model->setData(index, name, Qt::DisplayRole);
     }
 }
+*/
 
+/*
 void MainWindow::appendSavedPhoto(QString name) {
     QString photo_path = Utilities::getPhotoPath(name, "jpg");
     QStandardItem *item = new QStandardItem();
@@ -184,17 +283,4 @@ void MainWindow::appendSavedPhoto(QString name) {
     list_model->setData(index, name, Qt::DisplayRole);
     saved_list->scrollTo(index);
 }
-
-void MainWindow::takePhoto() {
-    if(capturer != nullptr) {
-        capturer->takePhoto();
-    }
-}
-
-void MainWindow::onFileOpend(const QString& path) {
-    qDebug() << "File open requested:" << path;
-}
-
-void MainWindow::onDirectoryEntered(const QString& path) {
-    qDebug() << "Entered directory:" << path;
-}
+*/
