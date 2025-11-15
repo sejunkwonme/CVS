@@ -169,3 +169,7 @@ void Inference::runInference(cv::Mat& frame) {
     detectObjects(frame);
     emit InferenceDone();
 }
+
+void Inference::finishInference() {
+	
+}

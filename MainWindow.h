@@ -2,14 +2,16 @@
 
 #include <QMainWindow>
 #include <QMutex>
-#include <opencv2/core/mat.hpp>
+#include <QObject>
+#include <QLabel>
+#include <QPushButton>
+#include <QGraphicsView>
+#include <opencv2/opencv.hpp>
 
 #include "Capture.h"
 #include "FolderModel.h"
 #include "FolderView.h"
 #include "Inference.h"
-#include "Utilities.h"
-
 
 class MainWindow : public QMainWindow {
 Q_OBJECT
@@ -36,7 +38,7 @@ private:
     QGraphicsView* imageView_;
 
     // 버튼 정의
-    QPushButton* capButton_;
+    QToolButton* capButton_;
     //QListView* saved_list;
 
     cv::Mat currentFrame_;

@@ -7,7 +7,7 @@
 using namespace std;
 
 Capture::Capture(int camera, QMutex* lock, QObject* parent)
-: running(false),
+: running_(false),
 cameraID_(camera),
 videoPath(""),
 data_lock_(lock),
@@ -20,50 +20,6 @@ Capture::~Capture() {
     
 }
 
-void Capture::captureLoop() {
-    cv::VideoCapture cap(cameraID_, cv::CAP_MSMF);
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-    cap.set(cv::CAP_PROP_FPS, 30);
-
-    if (!cap.isOpened()) { // 카메라 열리지 않았을경우 예외처리
-        qWarning() << "Camera open failed";
-        emit capfinished();
-        return;
-    }
-
-    cv::Mat tmp;
-
-    while (running) {
-        cap >> tmp;
-        if (tmp.empty()) break;
-
-        //448x448 로 중앙 크롭하기
-        int W = tmp.cols;
-        int H = tmp.rows;
-        int x_start = (W - 448) / 2;
-        int y_start = (H - 448) / 2;
-        cv::Rect roi(x_start, y_start, 448, 448);
-        cv::Mat cropped = tmp(roi);
-
-        // --- YOLOv1 추론 ---
-        //detectObjects(cropped);
-        emit callInference(&cropped);
-
-        //메인윈도우에 시그널 보내기
-        cv::Mat rgb;
-        cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
-        data_lock_->lock();
-        frame_ = rgb;
-        data_lock_->unlock();
-        emit frameCaptured(&frame_);
-    }
-
-    cap.release();
-    running = false;
-    emit capfinished();
-}
-
 /*
 void Capture::takePhoto(cv::Mat& frame) {
     QString photo_name = Utilities::newPhotoName();
@@ -74,14 +30,65 @@ void Capture::takePhoto(cv::Mat& frame) {
 }
 */
 
+void Capture::processFrame() {
+	if (!running_) {
+        cap_.release();
+        emit capfinished();
+        return;
+	}
+
+    if (!cap_.read(tmp_) || tmp_.empty()) {
+        cap_.release();
+        emit capfinished();
+        return;
+    }
+
+    // 중앙_crop
+    cv::Rect roi(
+        (tmp_.cols - 448) / 2,
+        (tmp_.rows - 448) / 2,
+        448, 448
+    );
+    cv::Mat cropped = tmp_(roi).clone();
+
+    cv::Mat rgb;
+    cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
+
+    {
+        QMutexLocker locker(data_lock_);
+        frame_ = rgb;
+    }
+
+    emit frameCaptured(&frame_);
+
+    // 다음 프레임 재귀적으로 계속 큐에 예약
+    QMetaObject::invokeMethod(this, "processFrame", Qt::QueuedConnection);
+
+}
+
 void Capture::start() {
-    if (running) return;
-    running = true;
-    captureLoop();
+    if (running_) return;
+    running_ = true;
+
+    std::string pipeline =
+        "mfvideosrc device-index=" + std::to_string(cameraID_) +
+        " ! video/x-raw, width=640, height=480, framerate=30/1, auto-focus=1 "
+        " ! videoconvert ! appsink";
+    cap_ = cv::VideoCapture(pipeline, cv::CAP_GSTREAMER);
+
+    if (!cap_.isOpened()) { // 카메라 열리지 않았을경우 예외처리
+        qWarning() << "Camera open failed";
+        emit capfinished();
+        return;
+    }
+
+    // 첫 프레임 요청
+    QMetaObject::invokeMethod(this, "processFrame", Qt::QueuedConnection);
 }
 
 void Capture::stop() {
-    running = false;
+    qDebug() << "STOP called in thread:";
+    running_ = false;
 }
 
 void Capture::startTakePhoto() {

@@ -15,19 +15,21 @@ public:
     ~Capture();
 
 private:
-    void captureLoop(); //내부 캡쳐루프
     //void takePhoto(cv::Mat& frame); // 사진 찍기
 
-    bool running;
+    bool running_;
     int cameraID_;
     QString videoPath;
     QMutex* data_lock_;
+    cv::Mat tmp_;
     cv::Mat frame_;
     bool taking_photo_;
+    cv::VideoCapture cap_;
 
 public slots:
     void start(); // 캡처루프 시작
     void stop(); // 캡처루프 중지
+    void processFrame();
     void startTakePhoto(); // 사진찍기 시작
 
 signals:

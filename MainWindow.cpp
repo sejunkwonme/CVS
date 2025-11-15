@@ -17,10 +17,11 @@
 #include <QStandardItem>
 #include <qfilesystemmodel>
 #include <QDir>
-
-#include <opencv2/opencv.hpp>
+#include <QToolButton>
 
 #include "MainWindow.h"
+
+#include "FolderView.h"
 
 MainWindow::MainWindow(QWidget* parent)
 : QMainWindow(parent),
@@ -71,21 +72,24 @@ void MainWindow::initUI() {
     imageScene_ = new QGraphicsScene(this);
     imageView_ = new QGraphicsView(imageScene_);
 
-    capButton_ = new QPushButton("Toggle", this);
+    capButton_ = new QToolButton(this);
     capButton_->setText("Start Capture");
     capButton_->setCheckable(true);
-    connect(capButton_, &QPushButton::toggled, this,
+    connect(capButton_, &QToolButton::toggled, this,
         [=](bool checked) {
             if (checked) {
                 emit startCameraRequest();
+                qDebug() << "camera started";
                 capButton_->setText("Stop Camera");
             }
             else {
                 emit stopcameraRequest();
+                qDebug() << "camera stopped";
                 capButton_->setText("Start Camera");
             }
         }
     );
+
 
     explorerModel_ = new FolderModel(this);
     explorerView_ = new FolderView(this);
@@ -110,9 +114,6 @@ void MainWindow::initUI() {
     cam_sub_layout->setStretch(1, 1);
 
     //connect(shutterButton_, SIGNAL(clicked(bool)), this, SLOT(takePhoto()));
-    connect(this, &MainWindow::startCameraRequest, this, &MainWindow::openCamera);
-    connect(this, &MainWindow::stopcameraRequest, this, &MainWindow::closeCamera);
-
     /*
     saved_list = new QListView(this);
     saved_list->setViewMode(QListView::IconMode);
@@ -124,6 +125,8 @@ void MainWindow::initUI() {
     main_layout->addWidget(saved_list);
 	*/
 
+    connect(this, &MainWindow::startCameraRequest, this, &MainWindow::openCamera);
+    connect(this, &MainWindow::stopcameraRequest, this, &MainWindow::closeCamera);
     // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
     QWidget* centralWidget = new QWidget(this);
     centralWidget->setLayout(main_layout);
@@ -161,37 +164,46 @@ void MainWindow::openCamera() {
     int camID = 0;
     captureThread_ = new QThread(this);
     captureWorker_ = new Capture(camID, data_lock_);
-
-    // movetoThread로 스레드에 QObject 작업 할당
     captureWorker_->moveToThread(captureThread_);
 
-    // 시그널 슬롯 연결
-    connect(captureThread_, &QThread::started, captureWorker_, &Capture::start);
-    connect(captureWorker_, &Capture::frameCaptured, this, &MainWindow::updateFrame);
-    connect(captureWorker_, &Capture::capfinished, captureThread_, &QThread::quit);
-    connect(captureWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
-    connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
+    // 스레드 시작하면 captur 도 같이 시작
+    connect(captureThread_,&QThread::started,
+        captureWorker_, &Capture::start);
+
+    // GUI 업데이트용 connect
+    connect(captureWorker_, &Capture::frameCaptured,
+        this, &MainWindow::updateFrame);
+
+    // worker는 스레드 종료 후 삭제
+    connect(captureWorker_, &Capture::capfinished,
+        captureWorker_, &QObject::deleteLater);
+
+    // thread는 finished() 후 삭제
+    connect(captureThread_, &QThread::finished,
+        captureThread_, &QObject::deleteLater);
 
     // 스레드 시작
     captureThread_->start();
-
     mainStatusLabel_->setText(QString("Capturing Camera %1").arg(camID));
 }
 
 void MainWindow::closeCamera() {
+    // nullptr 검사
     if (!captureWorker_ || !captureThread_)
         return;
 
-    // 1) 캡처 중단 요청
-    QMetaObject::invokeMethod(captureWorker_, &Capture::stop, Qt::QueuedConnection);
-
-    // 2) 종료 시그널 capfinished() -> quit -> deleteLater()  
-    //    이미 연결되어 있으므로 추가 코드 필요 없음
+    QMetaObject::invokeMethod(captureWorker_, "stop", Qt::QueuedConnection);
+    captureThread_->quit();
+    captureThread_->wait();
+    qDebug() << "camera off";
+    captureThread_ = nullptr;
+    captureWorker_ = nullptr;
 
     mainStatusLabel_->setText("Camera closed");
 }
 
 void MainWindow::startInference() {
+    int camID = 0;
     inferenceThread_ = new QThread(this);
     inferenceWorker_ = new Inference(data_lock_);
 
@@ -199,14 +211,13 @@ void MainWindow::startInference() {
     inferenceWorker_->moveToThread(inferenceThread_);
 
     // 시그널 슬롯 연결
-    connect(captureWorker_, &Capture::callInference, inferenceWorker_, &Inference::runInference);
-    connect(inferenceWorker_, &Capture::frameCaptured, this, &MainWindow::updateFrame);
-    connect(inferenceWorker_, &Capture::capfinished, captureThread_, &QThread::quit);
-    connect(inferenceWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
-    connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
+    //connect(captureWorker_, &Capture::callInference, inferenceWorker_, &Inference::runInference);
+    //connect(inferenceWorker_, &Inference::InferenceDone, captureThread_, &QThread::quit);
+    //connect(inferenceWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
+    //connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
 
     // 스레드 시작
-    captureThread_->start();
+    inferenceThread_->start();
 
     mainStatusLabel_->setText(QString("Capturing Camera %1").arg(camID));
 }
