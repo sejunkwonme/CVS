@@ -76,7 +76,7 @@ void MainWindow::initUI() {
     capButton_->setText("Start Capture");
     capButton_->setCheckable(true);
     connect(capButton_, &QToolButton::toggled, this,
-        [=](bool checked) {
+        [&](bool checked) {
             if (checked) {
                 emit startCameraRequest();
                 qDebug() << "camera started";
@@ -89,7 +89,23 @@ void MainWindow::initUI() {
             }
         }
     );
-
+    inferButton_ = new QToolButton(this);
+    inferButton_->setText("Start Inference");
+    inferButton_->setCheckable(true);
+    connect(inferButton_, &QToolButton::toggled, this,
+        [&](bool checked) {
+            if (checked) {
+                emit startInferenceRequest();
+                qDebug() << "Inference started";
+                inferButton_->setText("Stop Inference");
+            }
+            else {
+                emit stopInferenceRequest();
+                qDebug() << "Inference stopped";
+                inferButton_->setText("Start Inference");
+            }
+        }
+    );
 
     explorerModel_ = new FolderModel(this);
     explorerView_ = new FolderView(this);
@@ -103,6 +119,7 @@ void MainWindow::initUI() {
     cam_sub_layout->addWidget(imageView_);
     cam_sub_layout->addWidget(rightview);
     tools_sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
+    tools_sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
     main_layout->addLayout(cam_sub_layout);
     main_layout->addLayout(tools_sub_layout);
     main_layout->addWidget(explorerView_);
@@ -127,6 +144,8 @@ void MainWindow::initUI() {
 
     connect(this, &MainWindow::startCameraRequest, this, &MainWindow::openCamera);
     connect(this, &MainWindow::stopcameraRequest, this, &MainWindow::closeCamera);
+    connect(this, &MainWindow::startInferenceRequest, this, &MainWindow::startInference);
+    connect(this, &MainWindow::stopInferenceRequest, this, &MainWindow::stopInference);
     // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
     QWidget* centralWidget = new QWidget(this);
     centralWidget->setLayout(main_layout);
@@ -166,7 +185,7 @@ void MainWindow::openCamera() {
     captureWorker_ = new Capture(camID, data_lock_);
     captureWorker_->moveToThread(captureThread_);
 
-    // 스레드 시작하면 captur 도 같이 시작
+    // 스레드 시작하면 capture 도 같이 시작
     connect(captureThread_,&QThread::started,
         captureWorker_, &Capture::start);
 
@@ -203,6 +222,10 @@ void MainWindow::closeCamera() {
 }
 
 void MainWindow::startInference() {
+    //nullptr 검사 둘다 nullptr이면 추론 시작하면 안됨
+    if (!captureWorker_ || !captureThread_)
+        return;
+
     int camID = 0;
     inferenceThread_ = new QThread(this);
     inferenceWorker_ = new Inference(data_lock_);
@@ -211,19 +234,28 @@ void MainWindow::startInference() {
     inferenceWorker_->moveToThread(inferenceThread_);
 
     // 시그널 슬롯 연결
-    //connect(captureWorker_, &Capture::callInference, inferenceWorker_, &Inference::runInference);
-    //connect(inferenceWorker_, &Inference::InferenceDone, captureThread_, &QThread::quit);
-    //connect(inferenceWorker_, &Capture::capfinished, captureWorker_, &QObject::deleteLater);
-    //connect(captureThread_, &QThread::finished, captureThread_, &QObject::deleteLater);
+    connect(inferenceThread_, &QThread::started, captureWorker_, &Capture::startInference);
+    connect(captureWorker_, &Capture::callInference, inferenceWorker_, &Inference::runInference, Qt::BlockingQueuedConnection);
+    connect(captureWorker_, &Capture::inferfinished, inferenceWorker_, &QObject::deleteLater, Qt::BlockingQueuedConnection);
+    connect(inferenceThread_, &QThread::finished, inferenceThread_, &QObject::deleteLater);
 
     // 스레드 시작
     inferenceThread_->start();
-
     mainStatusLabel_->setText(QString("Capturing Camera %1").arg(camID));
 }
 
 void MainWindow::stopInference() {
-	
+    if (!inferenceThread_ || !inferenceWorker_)
+        return;
+
+    QMetaObject::invokeMethod(captureWorker_, "stopInference", Qt::BlockingQueuedConnection);
+    inferenceThread_->quit();
+    inferenceThread_->wait();
+    qDebug() << "Inference off";
+    inferenceThread_ = nullptr;
+    inferenceWorker_ = nullptr;
+
+    mainStatusLabel_->setText("Inference closed");
 }
 
 void MainWindow::updateFrame(cv::Mat *mat) {

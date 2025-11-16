@@ -39,6 +39,7 @@ private:
 
     // 버튼 정의
     QToolButton* capButton_;
+    QToolButton* inferButton_;
     //QListView* saved_list;
 
     cv::Mat currentFrame_;

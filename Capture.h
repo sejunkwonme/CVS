@@ -18,6 +18,7 @@ private:
     //void takePhoto(cv::Mat& frame); // 사진 찍기
 
     bool running_;
+    bool inference_;
     int cameraID_;
     QString videoPath;
     QMutex* data_lock_;
@@ -31,10 +32,13 @@ public slots:
     void stop(); // 캡처루프 중지
     void processFrame();
     void startTakePhoto(); // 사진찍기 시작
+    void startInference(); // 추론시작
+    void stopInference(); // 추론 중지
 
 signals:
     void frameCaptured(cv::Mat* data); // MainWindow gui 갱신용 시그널
     void photoTaken(QString name); // 사진찍기 완료 시그널
     void capfinished(); // 캡처 종료 시그널
-    void callInference(cv::Mat* data);
+    void inferfinished();
+    void callInference(cv::Mat& data);
 };

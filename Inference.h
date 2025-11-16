@@ -29,7 +29,7 @@ private:
     std::string input_name_str_;
     std::string output_name_str_;
 
-    QMutex* data_lock_;
+    bool inferencing_;
 
 public slots:
     void runInference(cv::Mat &frame);

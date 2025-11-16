@@ -8,6 +8,7 @@ using namespace std;
 
 Capture::Capture(int camera, QMutex* lock, QObject* parent)
 : running_(false),
+inference_(false),
 cameraID_(camera),
 videoPath(""),
 data_lock_(lock),
@@ -31,28 +32,34 @@ void Capture::takePhoto(cv::Mat& frame) {
 */
 
 void Capture::processFrame() {
+    // running 이 false이면 종료
 	if (!running_) {
         cap_.release();
         emit capfinished();
         return;
 	}
 
+    // 캡처시도후 캡처 안되면 종료
     if (!cap_.read(tmp_) || tmp_.empty()) {
         cap_.release();
         emit capfinished();
         return;
     }
 
-    // 중앙_crop
+    // 캡처후 중앙_crop
     cv::Rect roi(
         (tmp_.cols - 448) / 2,
         (tmp_.rows - 448) / 2,
         448, 448
     );
-    cv::Mat cropped = tmp_(roi).clone();
 
+    cv::Mat cropped = tmp_(roi).clone();
     cv::Mat rgb;
     cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
+
+    if (inference_) {
+        callInference(rgb);
+    }
 
     {
         QMutexLocker locker(data_lock_);
@@ -93,4 +100,14 @@ void Capture::stop() {
 
 void Capture::startTakePhoto() {
     taking_photo_ = true;
+}
+
+void Capture::startInference() {
+    inference_ = true;
+}
+
+void Capture::stopInference() {
+    qDebug() << "stopInference triggered";
+    inference_ = false;
+    emit inferfinished();
 }
