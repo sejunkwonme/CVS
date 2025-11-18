@@ -12,6 +12,7 @@
 #include "FolderModel.h"
 #include "FolderView.h"
 #include "Inference.h"
+#include "CaptureController.h"
 
 class MainWindow : public QMainWindow {
 Q_OBJECT
@@ -54,6 +55,10 @@ private:
     FolderModel* explorerModel_;
     FolderView* explorerView_;
     //void populateSavedList();
+
+    CaptureController* CaptureC_;
+
+    
     
 private slots:
     void showCameraInfo();
@@ -70,7 +75,7 @@ private slots:
 
 signals:
     void startCameraRequest();
-    void stopcameraRequest();
-    void startInferenceRequest();
-    void stopInferenceRequest();
+    void stopCameraRequest();
+    //void startInferenceRequest();
+    //void stopInferenceRequest();
 };

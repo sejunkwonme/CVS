@@ -18,10 +18,8 @@
 #include <qfilesystemmodel>
 #include <QDir>
 #include <QToolButton>
-
 #include "MainWindow.h"
-
-#include "FolderView.h"
+#include "CaptureWorker.h"
 
 MainWindow::MainWindow(QWidget* parent)
 : QMainWindow(parent),
@@ -42,7 +40,17 @@ captureWorker_(nullptr),
 inferenceWorker_(nullptr),
 explorerModel_(nullptr),
 explorerView_(nullptr) {
-    initUI();
+    initUI(); // GUI 요소 초기화
+    int camID = 0;
+    // CaptureController 객체 초기화 후 connect
+    CaptureC_ = new CaptureController(this);
+    data_lock_ = CaptureC_->datalock_;
+    connect(this, &MainWindow::startCameraRequest, CaptureC_, &CaptureController::startCapture);
+    connect(this, &MainWindow::stopCameraRequest, CaptureC_, &CaptureController::stopCapture);
+    connect(CaptureC_, &CaptureController::captured, this, &MainWindow::updateFrame);
+    
+
+    // Inference 객체 초기화 후 connect
 }
 
 MainWindow::~MainWindow() {
@@ -81,14 +89,16 @@ void MainWindow::initUI() {
                 emit startCameraRequest();
                 qDebug() << "camera started";
                 capButton_->setText("Stop Camera");
+                mainStatusLabel_->setText(QString("Capturing Camera %1").arg(0));
             }
             else {
-                emit stopcameraRequest();
+                emit stopCameraRequest();
                 qDebug() << "camera stopped";
                 capButton_->setText("Start Camera");
             }
         }
     );
+    /*
     inferButton_ = new QToolButton(this);
     inferButton_->setText("Start Inference");
     inferButton_->setCheckable(true);
@@ -106,6 +116,7 @@ void MainWindow::initUI() {
             }
         }
     );
+	*/
 
     explorerModel_ = new FolderModel(this);
     explorerView_ = new FolderView(this);
@@ -119,7 +130,7 @@ void MainWindow::initUI() {
     cam_sub_layout->addWidget(imageView_);
     cam_sub_layout->addWidget(rightview);
     tools_sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
-    tools_sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
+    //tools_sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
     main_layout->addLayout(cam_sub_layout);
     main_layout->addLayout(tools_sub_layout);
     main_layout->addWidget(explorerView_);
@@ -142,10 +153,8 @@ void MainWindow::initUI() {
     main_layout->addWidget(saved_list);
 	*/
 
-    connect(this, &MainWindow::startCameraRequest, this, &MainWindow::openCamera);
-    connect(this, &MainWindow::stopcameraRequest, this, &MainWindow::closeCamera);
-    connect(this, &MainWindow::startInferenceRequest, this, &MainWindow::startInference);
-    connect(this, &MainWindow::stopInferenceRequest, this, &MainWindow::stopInference);
+    //connect(this, &MainWindow::startInferenceRequest, this, &MainWindow::startInference);
+    //connect(this, &MainWindow::stopInferenceRequest, this, &MainWindow::stopInference);
     // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
     QWidget* centralWidget = new QWidget(this);
     centralWidget->setLayout(main_layout);

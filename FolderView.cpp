@@ -19,13 +19,21 @@ FolderView::FolderView(QWidget *parent) : QWidget(parent) {
 	splitter_->setStretchFactor(0, 1);  // leftView
 	splitter_->setStretchFactor(1, 3);  // listView
 
-
 	// 우측 리스트 뷰 설정
+	listView_->setStyleSheet(
+		"QListView::item:selected {"
+		"   background: rgba(56, 116, 242, 128);"
+		"   border: 1px solid #3874f2;"
+		"   color: white;"
+		"}"
+	);
 	listView_->setViewMode(QListView::IconMode);
-	listView_->setIconSize(QSize(64, 64));
+	listView_->setIconSize(QSize(32, 32));
 	listView_->setResizeMode(QListView::Adjust);
 	listView_->setSpacing(10);
-	listView_->setSelectionMode(QAbstractItemView::SingleSelection);
+	listView_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	listView_->setSelectionRectVisible(true);
+	listView_->setDragEnabled(true);
 
 	// ---- 레이아웃에 배치 ----
 	mainlayout_->addLayout(topBarLayout_);
@@ -35,7 +43,6 @@ FolderView::FolderView(QWidget *parent) : QWidget(parent) {
 	// 뒤로가기 버튼 signal
 	connect(backButton_, &QPushButton::clicked,
 		this, &FolderView::onBackButtonClicked);
-
 }
 
 FolderView::~FolderView()

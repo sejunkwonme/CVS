@@ -57,9 +57,6 @@ void Capture::processFrame() {
     cv::Mat rgb;
     cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
 
-    if (inference_) {
-        callInference(rgb);
-    }
 
     {
         QMutexLocker locker(data_lock_);

@@ -14,10 +14,11 @@ find_package(OpenCV REQUIRED)
 find_package(TBB REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
-set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
-  
+
+
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     MainWindow.h MainWindow.cpp
@@ -27,6 +28,8 @@ qt_add_executable(${PROJECT_NAME}
     Calibration.h Calibration.cpp
     FolderModel.h FolderModel.cpp
     FolderView.h FolderView.cpp
+    CaptureController.h CaptureController.cpp
+    CaptureWorker.h CaptureWorker.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
