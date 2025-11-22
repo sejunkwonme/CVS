@@ -22,14 +22,15 @@ set(CMAKE_AUTORCC ON)
 qt_add_executable(${PROJECT_NAME}
     main.cpp
     MainWindow.h MainWindow.cpp
-    Capture.h Capture.cpp
     Utilities.h Utilities.cpp
-    Inference.h Inference.cpp
-    Calibration.h Calibration.cpp
     FolderModel.h FolderModel.cpp
     FolderView.h FolderView.cpp
     CaptureController.h CaptureController.cpp
     CaptureWorker.h CaptureWorker.cpp
+    InferenceController.h InferenceController.cpp
+    InferenceWorker.h InferenceWorker.cpp
+    FrameController.h FrameController.cpp
+    FrameWorker.h FrameWorker.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

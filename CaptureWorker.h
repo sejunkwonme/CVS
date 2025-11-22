@@ -9,20 +9,20 @@ class CaptureWorker  : public QObject {
 	Q_OBJECT
 
 public:
-	CaptureWorker(QObject *parent, QMutex* lock);
+	CaptureWorker(QObject *parent, std::string pieline, cv::Mat frame, QMutex* lock);
 	~CaptureWorker();
 
 private:
 	Q_INVOKABLE void run();
-	Q_INVOKABLE void processFrame();
+	Q_INVOKABLE void captureOneFrame();
 	Q_INVOKABLE void stop();
 
 	cv::VideoCapture cap_;
-	cv::Mat frame_;
 	cv::Mat tmp_;
 	bool running_;
-	QMutex* datalock_;
+	QMutex* lock_;
+	cv::Mat frame_;
 
 signals:
-	void frameCaptured(cv::Mat* data);
+	void frameCaptured();
 };

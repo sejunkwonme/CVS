@@ -1,36 +1,34 @@
 #include "CaptureWorker.h"
 #include "MainWindow.h"
 
-CaptureWorker::CaptureWorker(QObject *parent, QMutex* lock)
-: QObject(parent), 
+CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, cv::Mat frame, QMutex* lock)
+: QObject(parent),
+cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
+tmp_(),
 running_(false),
-datalock_(lock) {
-    
+lock_(lock),
+frame_(frame) {
 }
 
 CaptureWorker::~CaptureWorker() {
-	
 }
 
 void CaptureWorker::run() {
-    if (running_) return;
-    running_ = true;
-
-    std::string pipeline =
-        "mfvideosrc device-index=" + std::to_string(0) +
-        " ! video/x-raw, width=640, height=480, framerate=30/1, auto-focus=1 "
-        " ! videoconvert ! appsink";
-    cap_ = cv::VideoCapture(pipeline, cv::CAP_GSTREAMER);
+    if (running_) {
+        return;
+    }
 
     if (!cap_.isOpened()) {
         qDebug() << "Camera open failed";
         return;
     }
 
-    QMetaObject::invokeMethod(this, "processFrame", Qt::QueuedConnection);
+    running_ = true;
+
+    QMetaObject::invokeMethod(this, "captureOneFrame", Qt::QueuedConnection);
 }
 
-void CaptureWorker::processFrame() {
+void CaptureWorker::captureOneFrame() {
     if (!running_) {
         cap_.release();
         return;
@@ -49,25 +47,16 @@ void CaptureWorker::processFrame() {
     );
 
     cv::Mat cropped = tmp_(roi).clone();
-
-    /*
-    if (inference_) {
-        callInference(cropped);
-    }
-	*/
     cv::Mat rgb;
     cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
 
+	lock_->lock();
+    rgb.copyTo(frame_);
+	lock_->unlock();
 
-    {
-        QMutexLocker locker(datalock_);
-        frame_ = rgb;
-    }
+    emit frameCaptured();
 
-    emit frameCaptured(&frame_);
-
-    QMetaObject::invokeMethod(this, "processFrame", Qt::QueuedConnection);
-
+    QMetaObject::invokeMethod(this, "captureOneFrame", Qt::QueuedConnection);
 }
 
 void CaptureWorker::stop() {
