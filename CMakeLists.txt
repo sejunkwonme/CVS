@@ -14,7 +14,7 @@ REQUIRED COMPONENTS Widgets Multimedia Concurrent)
 find_package(OpenCV REQUIRED)
 find_package(TBB REQUIRED)
 find_package(CUDAToolkit REQUIRED)
-#find_package(yaml-cpp REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -31,6 +31,7 @@ qt_add_executable(${PROJECT_NAME}
     InferenceWorker.h InferenceWorker.cpp
     FrameController.h FrameController.cpp
     FrameWorker.h FrameWorker.cpp
+    ConfigController.h ConfigController.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -46,7 +47,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     gstbase-1.0
     gobject-2.0
     glib-2.0
-    #yaml-cpp
+    yaml-cppd
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -55,7 +56,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${GSTREAMER_DIR}/include/glib-2.0
     ${GSTREAMER_DIR}/lib/glib-2.0/include
     ${OpenCV_INCLUDE_DIRS}
-    #"D:/Library/yaml-cpp-debug/include/yaml-cpp"
+    "D:/Library/yaml-cpp-debug/include"
 
 )
 
@@ -65,5 +66,7 @@ target_link_directories(${PROJECT_NAME} PRIVATE
     "D:/Library/onnxruntime-win-x64-gpu-1.23.2/lib"
     ${GSTREAMER_DIR}/lib
     ${GSTREAMER_DIR}/lib/gstreamer-1.0
-    #"D:/Library/yaml-cpp-debug/lib"
+    "D:/Library/yaml-cpp-debug/lib"
 )
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE YAML_CPP_STATIC_DEFINE)

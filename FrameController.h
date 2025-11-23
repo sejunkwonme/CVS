@@ -15,7 +15,7 @@ class FrameController : public QObject {
 public:
 	FrameController(QObject *parent, MainWindow *mainW);
 	~FrameController();
-	void initialize();
+	
 
 private:
 	void createWorker();
@@ -31,6 +31,7 @@ private:
 
 public slots:
 	void passThroughToGUI();
+	void initialize();
 
 signals:
 	void frameMade(cv::Mat frame);
