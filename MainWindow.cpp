@@ -23,9 +23,8 @@
 #include "CaptureWorker.h"
 
 MainWindow::MainWindow(QWidget* parent)
-: QMainWindow(parent),
-dataLock_() {
-    initUI(); // GUI 요소 초기화
+: QMainWindow(parent) {
+    initUI();
 }
 
 MainWindow::~MainWindow() {
@@ -33,18 +32,13 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::initUI() {
-    // MainWindow 의 크기 변경 및 맨위 메뉴바에서 드롭다운 메뉴 한 개 만들기
     this->setFixedSize(1920, 1080);
     fileMenu_ = menuBar()->addMenu("&Menu");
-    // 맨 위 메뉴 바의 Action 생성한다.
     createActions();
 
     // MainWindow 내부의 레이아웃 생성 및 기타 위젯 생성
-    QBoxLayout* main_layout = new QVBoxLayout(); // 세로 박스 레이아웃
-    QBoxLayout* cam_sub_layout = new QHBoxLayout(); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
-    QBoxLayout* tools_sub_layout = new QHBoxLayout(); // 버튼 도구들을 담는 서브레이아웃
-    QListView* topview = new QListView(this);
-    QListView* rightview = new QListView(this);
+    QBoxLayout* main_layout = new QHBoxLayout(); // 세로 박스 레이아웃
+    QBoxLayout* sub_layout = new QVBoxLayout(); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
 
     imageScene_ = new QGraphicsScene(this);
     imageView_ = new QGraphicsView(imageScene_);
@@ -84,29 +78,17 @@ void MainWindow::initUI() {
             }
         }
     );
+    rightView_ = new QListView();
 
-    explorerModel_ = new FolderModel(this);
-    explorerView_ = new FolderView(this);
-    explorerView_->setModel(explorerModel_);
-    connect(explorerView_, &FolderView::fileOpened, this, &MainWindow::onFileOpend);
-    connect(explorerView_, &FolderView::directoryEntered, this, &MainWindow::onDirectoryEntered);
-
-    //QListView* bottomView = new QListView(this);
-
-    main_layout->addWidget(topview);
-    cam_sub_layout->addWidget(imageView_);
-    cam_sub_layout->addWidget(rightview);
-    tools_sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
-    tools_sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
-    main_layout->addLayout(cam_sub_layout);
-    main_layout->addLayout(tools_sub_layout);
-    main_layout->addWidget(explorerView_);
-    main_layout->setStretch(0, 1);
-    main_layout->setStretch(1, 4);
-    main_layout->setStretch(2, 1);
-    main_layout->setStretch(3, 1);
-    cam_sub_layout->setStretch(0, 4);
-    cam_sub_layout->setStretch(1, 1);
+    main_layout->addWidget(imageView_);
+    main_layout->addLayout(sub_layout);
+    sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
+    sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
+    sub_layout->addWidget(rightView_);
+    main_layout->setStretch(0, 4);
+    main_layout->setStretch(1, 1);
+    sub_layout->setStretch(0, 1);
+    sub_layout->setStretch(1, 5);
 
     // 맨 마지막에 Central Widget 생성 후 여기에 레이아웃을 놓아야 한다.
     QWidget* centralWidget = new QWidget(this);
@@ -156,12 +138,4 @@ void MainWindow::updateFrame(cv::Mat mat) {
     imageScene_->addPixmap(image);
     imageScene_->update();
     imageView_->setSceneRect(image.rect());
-}
-
-void MainWindow::onFileOpend(const QString& path) {
-    qDebug() << "File open requested:" << path;
-}
-
-void MainWindow::onDirectoryEntered(const QString& path) {
-    qDebug() << "Entered directory:" << path;
 }

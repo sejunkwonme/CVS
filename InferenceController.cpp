@@ -1,5 +1,6 @@
 #include "InferenceController.h"
 
+
 InferenceController::InferenceController(QObject* parent, cv::Mat frame, QMutex* lock)
 : QObject(parent),
 frame_(frame),

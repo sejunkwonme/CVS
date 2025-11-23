@@ -6,11 +6,8 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QGraphicsView>
+#include <QListView>
 #include <opencv2/opencv.hpp>
-
-#include "Capture.h"
-#include "FolderModel.h"
-#include "FolderView.h"
 
 class MainWindow : public QMainWindow {
 Q_OBJECT
@@ -32,6 +29,7 @@ private:
     // 카메라 캡처를 표시할 그래픽 객체 정의
     QGraphicsScene* imageScene_;
     QGraphicsView* imageView_;
+    QListView* rightView_;
 
     // 버튼 정의
     QToolButton* capButton_;
@@ -39,16 +37,9 @@ private:
 
     cv::Mat currentFrame_;
 
-    // for capture thread
-
-    FolderModel* explorerModel_;
-    FolderView* explorerView_;
-
 public slots:
     void showCameraInfo();
     void updateFrame(cv::Mat mat);
-    void onFileOpend(const QString& path);
-    void onDirectoryEntered(const QString& path);
 signals:
     void startCameraRequest();
     void stopCameraRequest();

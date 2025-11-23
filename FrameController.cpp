@@ -8,7 +8,7 @@ mainW_(mainW) {
 }
 
 FrameController::~FrameController() {
-
+	destroyWorker();
 }
 
 void FrameController::createWorker() {

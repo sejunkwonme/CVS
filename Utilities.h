@@ -1,14 +1,10 @@
-#ifndef UTILITIES_H_
-#define UTILITIES_H_
+#pragma once
 
 #include <QString>
 
-class Utilities
-{
+class Utilities {
 public:
     static QString getDataPath();
     static QString newPhotoName();
     static QString getPhotoPath(QString name, QString postfix);
 };
-
-#endif
