@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "FrameController.h"
 #include "ConfigController.h"
+#include "CalibController.h"
 
 #include <QApplication>
 #include <QTimer>
@@ -11,6 +12,7 @@ int main(int argc, char* argv[]) {
 
     FrameController* fc = new FrameController(&w, &w);
     ConfigController* cc = new ConfigController(&w);
+    CalibController* calib = new CalibController(&w);
 
     QObject::connect(cc, &ConfigController::initialized, 
         fc, &FrameController::initialize);
@@ -18,6 +20,8 @@ int main(int argc, char* argv[]) {
     QTimer::singleShot(0, [&]() {
         cc->initialize();
         });
+
+    calib->PDFChain();
 
     w.setWindowTitle("CVS");
     w.show();

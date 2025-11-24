@@ -32,6 +32,7 @@ qt_add_executable(${PROJECT_NAME}
     FrameController.h FrameController.cpp
     FrameWorker.h FrameWorker.cpp
     ConfigController.h ConfigController.cpp
+    CalibController.h CalibController.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
