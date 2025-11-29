@@ -32,7 +32,7 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::initUI() {
-    this->setFixedSize(1920, 1080);
+    this->setFixedSize(2560, 1440);
     fileMenu_ = menuBar()->addMenu("&Menu");
     createActions();
 
@@ -40,8 +40,8 @@ void MainWindow::initUI() {
     QBoxLayout* main_layout = new QHBoxLayout(); // 세로 박스 레이아웃
     QBoxLayout* sub_layout = new QVBoxLayout(); // 중간의 영상영역과 익스플로러 영역을 넣을 가로 박스 레이아웃
 
-    imageScene_ = new QGraphicsScene(this);
-    imageView_ = new QGraphicsView(imageScene_);
+    imageLabel_ = new QLabel(this);
+    imageLabel_->setScaledContents(false);
 
     capButton_ = new QToolButton(this);
     capButton_->setText("Start Capture");
@@ -78,9 +78,10 @@ void MainWindow::initUI() {
             }
         }
     );
+
     rightView_ = new QListView();
 
-    main_layout->addWidget(imageView_);
+    main_layout->addWidget(imageLabel_);
     main_layout->addLayout(sub_layout);
     sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
     sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
@@ -97,45 +98,21 @@ void MainWindow::initUI() {
 }
 
 void MainWindow::createActions() {
-    // 맨 위 메뉴바의 액션을 생성하여 시그널 슬롯 연결
-    cameraInfoAction_ = new QAction("Camera &Information", this);
-    fileMenu_->addAction(cameraInfoAction_);
     exitAction_ = new QAction("E&xit", this);
     fileMenu_->addAction(exitAction_);
 
-    // connect the signals and slots
     connect(exitAction_, &QAction::triggered, QApplication::instance(), &QApplication::quit);
-    connect(cameraInfoAction_, &QAction::triggered, this, &MainWindow::showCameraInfo);
-}
-
-void MainWindow::showCameraInfo() {
-    QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-    QString info = QString("Available Cameras: \n");
-
-    foreach(const QCameraDevice &cameraInfo, cameras) {
-        info += " - " + cameraInfo.id() + ": ";
-        info += cameraInfo.description() + "\n";
-    }
-
-    QMessageBox::information(this, "Cameras", info);
 }
 
 void MainWindow::updateFrame(cv::Mat mat) {
     dataLock_->lock();
-    currentFrame_ = mat;
+    QImage img(
+        mat.data,
+        mat.cols,
+        mat.rows,
+        mat.step,
+        QImage::Format_RGB888
+    );
     dataLock_->unlock();
-
-    QImage frame(
-        currentFrame_.data,
-        currentFrame_.cols,
-        currentFrame_.rows,
-        currentFrame_.step,
-        QImage::Format_RGB888);
-    QPixmap image = QPixmap::fromImage(frame);
-
-    imageScene_->clear();
-    imageView_->resetTransform();
-    imageScene_->addPixmap(image);
-    imageScene_->update();
-    imageView_->setSceneRect(image.rect());
+    imageLabel_->setPixmap(QPixmap::fromImage(img, Qt::NoFormatConversion));
 }

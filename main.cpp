@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
         });
 
     calib->PDFChain();
+    calib->calibrate();
 
     w.setWindowTitle("CVS");
     w.show();

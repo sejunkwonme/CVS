@@ -1,8 +1,9 @@
 #include "FrameController.h"
+#include "Utilities.h"
 
 FrameController::FrameController(QObject* parent, MainWindow* mainW)
 : QObject(parent),
-frame_(cv::Mat(448,448,CV_8UC3)),
+frame_(cv::Mat(1080,1920,CV_8UC3)),
 lock_(new QMutex()),
 mainW_(mainW) {
 }
@@ -36,7 +37,9 @@ void FrameController::passThroughToGUI() {
 void FrameController::initialize() {
 	capC_ = new CaptureController(this, frame_, lock_);
 	inferC_ = new InferenceController(this, frame_, lock_);
+
 	createWorker();
+
 	connect(mainW_, &MainWindow::startCameraRequest,
 		capC_, &CaptureController::startCapture);
 	connect(mainW_, &MainWindow::stopCameraRequest,
@@ -49,10 +52,24 @@ void FrameController::initialize() {
 
 	connect(mainW_, &MainWindow::startCameraRequest,
 		worker_, &FrameWorker::run);
+
 	connect(worker_, &FrameWorker::frameReady,
 		this, &FrameController::passThroughToGUI);
 	connect(this, &FrameController::frameMade,
 		mainW_, &MainWindow::updateFrame);
+
+	connect(mainW_, &MainWindow::takePhoto,
+		this, &FrameController::takePhoto);
+
 	mainW_->dataLock_ = lock_;
 	thread_->start();
+}
+
+void FrameController::takePhoto() {
+	QString photo_name = Utilities::newPhotoName();
+	QString photo_path = Utilities::getPhotoPath(photo_name, "jpg");
+
+	lock_->lock();
+	cv::imwrite(photo_path.toStdString(), frame_);
+	lock_->unlock();
 }

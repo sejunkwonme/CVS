@@ -2,12 +2,12 @@
 #include "MainWindow.h"
 
 CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, cv::Mat frame, QMutex* lock)
-: QObject(parent),
-cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
-tmp_(),
-running_(false),
-lock_(lock),
-frame_(frame) {
+    : QObject(parent),
+    cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
+    tmp_(),
+    running_(false),
+    lock_(lock),
+    frame_(frame) {
 }
 
 CaptureWorker::~CaptureWorker() {
@@ -29,34 +29,21 @@ void CaptureWorker::run() {
 }
 
 void CaptureWorker::captureOneFrame() {
-    if (!running_) {
-        cap_.release();
-        return;
+    while (running_) {
+        cap_ >> tmp_;
+
+        // tmp_ = NV12 raw buffer (height = 1620, width = 1920)
+
+        cv::Mat rgb;
+        cv::cvtColor(tmp_, rgb, cv::COLOR_YUV2RGB_NV12);
+
+        lock_->lock();
+        rgb.copyTo(frame_);   // frame_ = RGB Mat
+        lock_->unlock();
+
+        emit frameCaptured();
     }
-
-    if (!cap_.read(tmp_) || tmp_.empty()) {
-        running_ = false;
-    	cap_.release();
-        return;
-    }
-
-    cv::Rect roi(
-        (tmp_.cols - 448) / 2,
-        (tmp_.rows - 448) / 2,
-        448, 448
-    );
-
-    cv::Mat cropped = tmp_(roi).clone();
-    cv::Mat rgb;
-    cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
-
-	lock_->lock();
-    rgb.copyTo(frame_);
-	lock_->unlock();
-
-    emit frameCaptured();
-
-    QMetaObject::invokeMethod(this, "captureOneFrame", Qt::QueuedConnection);
+    emit captureFinished();
 }
 
 void CaptureWorker::stop() {

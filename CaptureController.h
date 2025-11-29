@@ -18,13 +18,11 @@ public:
 
 private:
 	void createCamera();
-	void destroyCamera();
 
 	QThread* thread_;
 	QMutex* captureLock_;
 	std::string pipeline_;
 	cv::Mat frame_;
-
 
 public slots:
 	void startCapture();

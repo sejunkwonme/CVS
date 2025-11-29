@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <QThread>
 #include <QMutex>
+#include <QImage>
 #include "FrameWorker.h"
 #include "CaptureController.h"
 #include "InferenceController.h"
@@ -32,6 +33,7 @@ private:
 public slots:
 	void passThroughToGUI();
 	void initialize();
+	void takePhoto();
 
 signals:
 	void frameMade(cv::Mat frame);
