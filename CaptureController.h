@@ -29,7 +29,9 @@ private:
 public slots:
 	void startCapture();
 	void stopCapture();
+	void deleteAfterWait();
 
 signals:
 	void captured(cv::Mat& data);
+	void stopped();
 };

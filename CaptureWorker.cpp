@@ -34,31 +34,26 @@ void CaptureWorker::captureOneFrame() {
         return;
     }
 
-    if (!cap_.read(tmp_) || tmp_.empty()) {
-        running_ = false;
-    	cap_.release();
-        return;
-    }
-
-    cv::Rect roi(
-        (tmp_.cols - 448) / 2,
-        (tmp_.rows - 448) / 2,
-        448, 448
-    );
-
-    cv::Mat cropped = tmp_(roi).clone();
     cv::Mat rgb;
-    cv::cvtColor(cropped, rgb, cv::COLOR_BGR2RGB);
+    cv::Mat cropped;
+    while (running_) {
+        cap_ >> tmp_;
 
-	lock_->lock();
-    rgb.copyTo(frame_);
-	lock_->unlock();
+        cv::Rect roi(
+            (tmp_.cols - 448) / 2,
+            (tmp_.rows - 448) / 2,
+            448, 448
+        );
 
-    emit frameCaptured();
+        cropped = tmp_(roi).clone();
 
-    QMetaObject::invokeMethod(this, "captureOneFrame", Qt::QueuedConnection);
-}
+        cv::cvtColor(cropped, rgb, cv::COLOR_YUV2RGB_YUY2);
+        
+        lock_->lock();
+        rgb.copyTo(frame_);
+        lock_->unlock();
 
-void CaptureWorker::stop() {
-    running_ = false;
+        emit frameCaptured();
+    }
+    emit captureFinished();
 }

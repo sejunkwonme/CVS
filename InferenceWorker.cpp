@@ -50,7 +50,6 @@ inferLock_(lock) {
     for (auto& p : Ort::GetAvailableProviders())
         qDebug() << "Provider:" << QString::fromStdString(p);
 
-
     {
         Ort::AllocatorWithDefaultOptions allocator;
         Ort::AllocatedStringPtr in_ptr = ort_session_->GetInputNameAllocated(0, allocator);
@@ -77,14 +76,13 @@ void InferenceWorker::run() {
 	cv::Mat blob = cv::dnn::blobFromImage(
 		frame_,
 		1.0 / 255.0,
-		cv::Size(frame_.cols, frame_.rows),
+		cv::Size(448, 448),
 		cv::Scalar(),
-		true,
 		false,
+		true,
 		CV_32F
 	);
 	inferLock_->unlock();
-	
 	constexpr int S = 7, B = 2, C = 20;
 	constexpr int H = 448, W = 448;
 	constexpr std::array<int64_t, 4> input_shape{ 1, 3, 448, 448 };
@@ -104,19 +102,39 @@ void InferenceWorker::run() {
 		input_shape.size()
 	);
 
+	QElapsedTimer t;
+	t.restart();
 	auto output_tensors = ort_session_->Run(
 		Ort::RunOptions{ nullptr },
 		input_names_.data(), &input_tensor, 1,
 		output_names_.data(), 1
 	);
+	qint64 ns = t.nsecsElapsed();
+	double ms = ns / 1e6;
+
+	qDebug() << "[ORT Run] latency =" << ms << "ms";
+
+	Ort::AllocatorWithDefaultOptions allocator;
+	auto out_type_info = ort_session_->GetOutputTypeInfo(0);
+	auto out_tensor_info = out_type_info.GetTensorTypeAndShapeInfo();
+	auto out_shape = out_tensor_info.GetShape();
+	qDebug() << "Model output shape:";
+	for (auto s : out_shape) qDebug() << s;
 
 	float* preds = output_tensors.front().GetTensorMutableData<float>();
 
-	constexpr float conf_thresh = 0.15f;
-	constexpr int stride = (5 * B + C);
+	std::vector<cv::Rect> boxes;
+	std::vector<float> scores;
+	std::vector<int> nms_indices;
+	std::vector<int> cls_indices;
+	std::vector<std::string> classes = { "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
+
+	constexpr float score_thresh = 0.1f;
+	constexpr float nms_thresh = 0.3f;
 
 	for (int i = 0; i < S; ++i) {
 		for (int j = 0; j < S; ++j) {
+			// 20개의 클래스중 제일 높은 확률 구하기
 			const int offset = S * S;
 
 			int   best_id = 0;
@@ -133,43 +151,85 @@ void InferenceWorker::run() {
 			int   class_id = best_id;
 			float class_conf = best_v;
 
+			// 각 박스 2개의 score 구하기
+			float boxScore1 = class_conf * preds[(i * S + j) + (20 * offset)];
+			float boxScore2 = class_conf * preds[(i * S + j) + (25 * offset)];
 
-			for (int b = 0; b < B; ++b) {
-				float x_cell = preds[(i * S + j) + (21 * offset)];
-				float y_cell = preds[(i * S + j) + (22 * offset)];
-				float w = preds[(i * S + j) + (23 * offset)];
-				float h = preds[(i * S + j) + (24 * offset)];
-				float conf = preds[(i * S + j) + (20 * offset)];
+			// 각 박스의 좌표 다시 픽셀좌표계로 복원
+			float x1, y1, w1, h1;
+			x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
+			y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
+			w1 = preds[(i * S + j) + (23 * offset)] * 448;
+			h1 = preds[(i * S + j) + (24 * offset)] * 448;
 
-				float score = conf * class_conf;
-				if (score < conf_thresh)
-					continue;
+			float x2, y2, w2, h2;
+			x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
+			y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
+			w2 = preds[(i * S + j) + (28 * offset)] * 448;
+			h2 = preds[(i * S + j) + (29 * offset)] * 448;
 
-				float x = (j + x_cell) / S;
-				float y = (i + y_cell) / S;
-				float box_w = w;
-				float box_h = h;
+			cv::Rect2f box1(
+				x1 - (w1 / 2.0f),
+				y1 - (h1 / 2.0f),
+				w1,
+				h1
+			);
 
-				inferLock_->lock();
-				int x1 = static_cast<int>((x - box_w / 2) * frame_.cols);
-				int y1 = static_cast<int>((y - box_h / 2) * frame_.rows);
-				int x2 = static_cast<int>((x + box_w / 2) * frame_.cols);
-				int y2 = static_cast<int>((y + box_h / 2) * frame_.rows);
-				inferLock_->unlock();
-				cv::Rect box(cv::Point(x1, y1), cv::Point(x2, y2));
-				cv::Scalar color = cv::Scalar(0, 255 * (b == 0), 255 * (b == 1));
+			cv::Rect2f box2(
+				x2 - (w2 / 2.0f),
+				y2 - (h2 / 2.0f),
+				w2,
+				h2
+			);
 
-				inferLock_->lock();
-				cv::rectangle(frame_, box, color, 1);
-				inferLock_->unlock();
-
-				std::string label = std::to_string(class_id) + ":" + cv::format("%.2f", score);
-
-				inferLock_->lock();
-				cv::putText(frame_, label, cv::Point(x1, y1 - 3),
-					cv::FONT_HERSHEY_SIMPLEX, 0.3, color, 1);
-				inferLock_->unlock();
-			}
+			boxes.push_back(box1);
+			boxes.push_back(box2);
+			scores.push_back(boxScore1);
+			scores.push_back(boxScore2);
+			cls_indices.push_back(class_id);
+			cls_indices.push_back(class_id);
 		}
 	}
+
+	cv::dnn::NMSBoxes(
+		boxes,
+		scores,
+		score_thresh,
+		nms_thresh,
+		nms_indices
+	);
+
+	inferLock_->lock();
+	for (auto cls : nms_indices) {
+		cv::rectangle(
+			frame_,
+			boxes[cls],
+			cv::Scalar(0, 255, 0),
+			3
+		);
+
+		std::string text = classes[cls_indices[cls]];
+
+		int baseline = 0;
+		cv::Size textSize = cv::getTextSize(
+			text,
+			cv::FONT_HERSHEY_SIMPLEX,
+			0.6,
+			2,
+			&baseline
+		);
+
+		int textY = boxes[cls].y - 2;
+		if (textY < textSize.height)
+			textY = boxes[cls].y + textSize.height + 2;
+
+		cv::Point org(boxes[cls].x, textY);
+
+		cv::putText(frame_, text, org,
+			cv::FONT_HERSHEY_SIMPLEX,
+			0.6,
+			cv::Scalar(0, 255, 0),
+			2);
+	}
+	inferLock_->unlock();
 }

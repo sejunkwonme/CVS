@@ -5,9 +5,9 @@ CaptureController::CaptureController(QObject *parent, cv::Mat frame, QMutex* loc
 captureLock_(lock),
 frame_(frame) {
 	pipeline_ =
-		"mfvideosrc device-index=" + std::to_string(0) +
-		" ! video/x-raw, width=640, height=480, framerate=30/1, auto-focus=1 "
-		" ! videoconvert ! appsink";
+		"mfvideosrc device-index=0 "
+		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 "
+		"! appsink drop=true max-buffers=1 sync=false";
 }
 
 CaptureController::~CaptureController() {
@@ -16,6 +16,9 @@ CaptureController::~CaptureController() {
 void CaptureController::createCamera() {
 	thread_ = new QThread(this);
 	worker_ = new CaptureWorker(nullptr, pipeline_, frame_, captureLock_);
+
+	connect(worker_, &CaptureWorker::captureFinished, this, &CaptureController::deleteAfterWait);
+
 	worker_->moveToThread(thread_);
 	thread_->start();
 }
@@ -38,6 +41,9 @@ void CaptureController::startCapture() {
 }
 
 void CaptureController::stopCapture() {
-	QMetaObject::invokeMethod(worker_, "stop", Qt::QueuedConnection);
+	worker_->running_ = false;
+}
+
+void CaptureController::deleteAfterWait() {
 	destroyCamera();
 }

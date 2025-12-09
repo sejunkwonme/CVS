@@ -6,6 +6,8 @@
 #include <cuda_runtime_api.h> 
 #include <QMutex>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <opencv2/dnn/dnn.hpp>
 
 class InferenceWorker  : public QObject
 {
@@ -30,4 +32,3 @@ private:
     QMutex* inferLock_;
     cv::Mat frame_;
 };
-
