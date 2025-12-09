@@ -72,6 +72,11 @@ InferenceWorker::~InferenceWorker() {
 void InferenceWorker::run() {
 	qDebug() << "inferencing";
 
+	QElapsedTimer t_all;
+	t_all.start();
+
+	QElapsedTimer t_blob;
+	t_blob.start();
 	inferLock_->lock();
 	cv::Mat blob = cv::dnn::blobFromImage(
 		frame_,
@@ -83,6 +88,9 @@ void InferenceWorker::run() {
 		CV_32F
 	);
 	inferLock_->unlock();
+	qint64 ns_blob = t_blob.nsecsElapsed();
+	qDebug() << "[blob] latency =" << ns_blob / 1e03 << "us";
+
 	constexpr int S = 7, B = 2, C = 20;
 	constexpr int H = 448, W = 448;
 	constexpr std::array<int64_t, 4> input_shape{ 1, 3, 448, 448 };
@@ -103,24 +111,19 @@ void InferenceWorker::run() {
 	);
 
 	QElapsedTimer t;
-	t.restart();
+	t.start();
 	auto output_tensors = ort_session_->Run(
 		Ort::RunOptions{ nullptr },
 		input_names_.data(), &input_tensor, 1,
 		output_names_.data(), 1
 	);
 	qint64 ns = t.nsecsElapsed();
-	double ms = ns / 1e6;
 
-	qDebug() << "[ORT Run] latency =" << ms << "ms";
+	qDebug() << "[ORT Run] latency =" << ns / 1e03 << "us";
 
-	Ort::AllocatorWithDefaultOptions allocator;
-	auto out_type_info = ort_session_->GetOutputTypeInfo(0);
-	auto out_tensor_info = out_type_info.GetTensorTypeAndShapeInfo();
-	auto out_shape = out_tensor_info.GetShape();
-	qDebug() << "Model output shape:";
-	for (auto s : out_shape) qDebug() << s;
 
+	QElapsedTimer post_t;
+	post_t.start();
 	float* preds = output_tensors.front().GetTensorMutableData<float>();
 
 	std::vector<cv::Rect> boxes;
@@ -232,4 +235,9 @@ void InferenceWorker::run() {
 			2);
 	}
 	inferLock_->unlock();
+	qint64 ns_post = post_t.nsecsElapsed();
+	qDebug() << "[Postprocess] latency =" << ns_post / 1e03 << "us";
+
+	qint64 ns_all = t_all.nsecsElapsed();
+	qDebug() << "[All] latency =" << ns_all / 1e03 << "us";
 }

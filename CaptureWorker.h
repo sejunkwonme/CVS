@@ -15,7 +15,7 @@ public:
 
 private:
 	Q_INVOKABLE void run();
-	void captureOneFrame();
+	Q_INVOKABLE void captureOneFrame();
 
 	cv::VideoCapture cap_;
 	cv::Mat tmp_;

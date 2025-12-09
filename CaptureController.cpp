@@ -6,7 +6,7 @@ captureLock_(lock),
 frame_(frame) {
 	pipeline_ =
 		"mfvideosrc device-index=0 "
-		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1 "
+		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1, auto-focus = 1"
 		"! appsink drop=true max-buffers=1 sync=false";
 }
 
