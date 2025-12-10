@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <opencv2/dnn/dnn.hpp>
+#include "kernel.cuh"
 
 class InferenceWorker  : public QObject
 {
@@ -28,6 +29,8 @@ private:
     std::vector<const char*> output_names_;
     std::string input_name_str_;
     std::string output_name_str_;
+    float* dptr_;
+    void testCudaKernel();
 
     QMutex* inferLock_;
     cv::Mat frame_;

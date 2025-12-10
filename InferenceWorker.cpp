@@ -50,18 +50,20 @@ inferLock_(lock) {
     for (auto& p : Ort::GetAvailableProviders())
         qDebug() << "Provider:" << QString::fromStdString(p);
 
-    {
-        Ort::AllocatorWithDefaultOptions allocator;
-        Ort::AllocatedStringPtr in_ptr = ort_session_->GetInputNameAllocated(0, allocator);
-        Ort::AllocatedStringPtr out_ptr = ort_session_->GetOutputNameAllocated(0, allocator);
-        input_name_str_ = std::string(in_ptr.get());
-        output_name_str_ = std::string(out_ptr.get());
-        input_names_ = { input_name_str_.c_str() };
-        output_names_ = { output_name_str_.c_str() };
-        qDebug() << "IO names:" << input_names_[0] << "->" << output_names_[0];
-    }
+    
+    Ort::AllocatorWithDefaultOptions allocator;
+    Ort::AllocatedStringPtr in_ptr = ort_session_->GetInputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr out_ptr = ort_session_->GetOutputNameAllocated(0, allocator);
+    input_name_str_ = std::string(in_ptr.get());
+    output_name_str_ = std::string(out_ptr.get());
+    input_names_ = { input_name_str_.c_str() };
+    output_names_ = { output_name_str_.c_str() };
+    qDebug() << "IO names:" << input_names_[0] << "->" << output_names_[0];
+    
 
     qDebug() << "YOLOv1 ONNX model ready.";
+
+	cudaMalloc((void**)&dptr_, sizeof(float) * 10);
 }
 
 InferenceWorker::~InferenceWorker() {
@@ -71,6 +73,8 @@ InferenceWorker::~InferenceWorker() {
 
 void InferenceWorker::run() {
 	qDebug() << "inferencing";
+
+	testCudaKernel();
 
 	QElapsedTimer t_all;
 	t_all.start();
@@ -240,4 +244,26 @@ void InferenceWorker::run() {
 
 	qint64 ns_all = t_all.nsecsElapsed();
 	qDebug() << "[All] latency =" << ns_all / 1e03 << "us";
+}
+
+void InferenceWorker::testCudaKernel() {
+	const int N = 10;
+	float h_data[N];
+
+	for (int i = 0; i < N; i++) h_data[i] = i;
+
+	float* d_data;
+	cudaMalloc((void**)&d_data, sizeof(float) * N);
+	cudaMemcpy(d_data, h_data, sizeof(float) * N, cudaMemcpyHostToDevice);
+
+	launchMyKernel(d_data, N, 0);   // 당신이 만든 launcher 호출
+	cudaDeviceSynchronize();
+
+	cudaMemcpy(h_data, d_data, sizeof(float) * N, cudaMemcpyDeviceToHost);
+
+	for (int i = 0; i < N; i++) {
+		qDebug() << h_data[i];
+	}
+
+	cudaFree(d_data);
 }
