@@ -21,7 +21,32 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+add_library(CVS_CUDA STATIC
+    kernel.cu
+)
+target_compile_options(CVS_CUDA PRIVATE
+    $<$<CONFIG:Debug>:
+        -G
+        -lineinfo
+        -Xcompiler=/Zi
+        -Xcompiler=/Od
+    >
+)
 
+set_source_files_properties(kernel.cu PROPERTIES LANGUAGE CUDA)
+
+target_link_libraries(CVS_CUDA PUBLIC CUDA::cudart)
+
+target_include_directories(CVS_CUDA PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CUDAToolkit_INCLUDE_DIRS}
+)
+set_target_properties(CVS_CUDA PROPERTIES
+    CUDA_SEPARABLE_COMPILATION OFF
+    CUDA_ARCHITECTURES 86  # RTX 3090
+)
+
+#set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo -Xcompiler=\"/Zi /Od\"")
 set(ORT_ROOT "D:/Library/onnxruntime-win-x64-gpu-1.23.2")
 
 # Core runtime
@@ -81,8 +106,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     onnxruntime_providers_shared
     onnxruntime_providers_cuda
     onnxruntime_providers_tensorrt
-    CUDA::cudart
     ${GST_LIBRARIES}
+    CVS_CUDA
 )
 target_include_directories(${PROJECT_NAME} PRIVATE
     "D:/Library/onnxruntime-win-x64-gpu-1.23.2/include"
@@ -94,6 +119,10 @@ target_link_directories(${PROJECT_NAME} PRIVATE
     "C:/Program Files (x86)/Intel/oneAPI/tbb/2022.3/lib"
     "C:/Program Files (x86)/Intel/oneAPI/ipp/2022.3/lib"
     "D:/Library/onnxruntime-win-x64-gpu-1.23.2/lib"
+)
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:/Zi /Od>
 )
 foreach(dll ${ORT_DLLS})
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
