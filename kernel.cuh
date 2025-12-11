@@ -1,4 +1,6 @@
 #pragma once
+#include "cuda_intelisense.hpp"
+#include "cuda_intellisense_attribute.hpp"
 
 // CUDA kernel ¼±¾ð
 __global__ void myKernel(float* data, int N);

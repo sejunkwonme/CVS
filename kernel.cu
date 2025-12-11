@@ -1,9 +1,11 @@
 #include "kernel.cuh"
+#include "cuda_intelisense.hpp"
+#include "cuda_intellisense_attribute.hpp"
 #include <cuda_runtime.h>
 
 __global__ void myKernel(float* data, int N) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
+    
     if (idx == 0) {
         for (int i = 0; i < 2000; i++) { asm(""); }
     }
@@ -14,5 +16,5 @@ __global__ void myKernel(float* data, int N) {
 void launchMyKernel(float* data, int N, cudaStream_t stream) {
     int block = 256;
     int grid = (N + block - 1) / block;
-    myKernel << <grid, block, 0, stream >> > (data, N);
+    myKernel KERNEL_ARG4(grid, block, 0, stream) (data, N);
 }
