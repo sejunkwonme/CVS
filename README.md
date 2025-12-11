@@ -63,3 +63,29 @@
   이 때문에 Inference가 실행될 때 캡처한 프레임이 이미 GUI에 표시 되고 나서 과거의 프레임에 대해 추론하고 영원히 추론결과가 GUI스레드에 표시되지 않는 문제가 있었음. 
   - Blocking Queued Connection 타입을 connect에 지정하여 Inference가 다 끝날 때까지 Capture Engine 스레드를 Block 하게 만들어 온전한 순서대로 프레임 캡처 -> 추론 -> GUI 에 표시 하는 Concurrent한 순서가 보장되도록 수정하니 잘 동작.
 ***
+
+## 4. Subproject - 30Fps
+
+* 웹캠 실시간 캡처에서 30Fps로 프레임이 생성될 때 이러한 프레임들이 기계학습 추론할 때 drop 되거나 block 되지 않게 하도록 추론 pipline을 수정
+* 33ms라면 대략 이 시간을 주기로 cap_ >> frame 에서 프레임이 생성됨
+* 그런데 여기서 추론시간이 33ms 가 넘어간다면 프레임이 지연되거나 dorp됨
+
+**시간측정** [us는 microsecond를 표현, ms 는 milisecond]
+
+![screenshot](/assets/firstresult.png)
+
+* 최초 프레임 생성 이후 YUY2 -> RGB 변환, 그리고 Crop 하는데에 1460us(1.46ms) 소요
+* 이후 Inference 스레드에서 처리될 때 모델의 입력을 만드는 cv::blobFromImage에서 약 2.5~4 ms 소요
+* blob생성후 Ort Session Run 시에 약 37.5~39ms 소요
+* 추론후 데이터를 받아 후처리 후 cv::dnn::NMSBoxes 를 수행하는 동안 약 300~500us(0.5ms) 소요
+
+이 시간들을 다 합하면 프레임 생성 후 43~45ms 정도 소요된다. 30Fps는 33ms 주기마다 프레임이 생성되므로 이 주기에 들어가지 않아
+프레임이 밀리거나 drop된다.
+
+**전략**
+
+* ONNX Runtime CUDA Excution Provider는 Session Run 할 때 노드를 자동으로 감지하여 cudnn에서 인식할 수 있는 Operation은 자동으로 최적화된 커널을 만들어서 실행해 준다.
+* 이렇게 만들어준 커널은 최적화의 성능마진이 매우 작은 수준으로 잘 최적화 되므로 Session 내부를 최적화 하지는 않는다.
+* 생각보다 raw 이미지를 변환하고, tensor형식으로 만들어 주는 opencv api 함수들이 시간소요가 크다. 이 부분을 CUDA 커널로 직접 구현하여 지연 시간을 줄이기로 계획
+* cv::dnn:NMSBoxes 가 시간소요가 많이 걸릴것으로 예상되었으나 실제로는 매우 빠르게 실행됨
+* 그래도 D2H, H2D 시간을 줄이기 위해 대부분의 메모리가 Device메모리 상에서 움직이도록 구현하도록 계획
