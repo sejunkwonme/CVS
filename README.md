@@ -72,4 +72,4 @@
 
 **시간측정**
 
-![screenshot](https://github.com/sejunkwonme/CVS/assets/firstresult.png)
+![screenshot](/assets/firstresult.png)
