@@ -63,3 +63,13 @@
   이 때문에 Inference가 실행될 때 캡처한 프레임이 이미 GUI에 표시 되고 나서 과거의 프레임에 대해 추론하고 영원히 추론결과가 GUI스레드에 표시되지 않는 문제가 있었음. 
   - Blocking Queued Connection 타입을 connect에 지정하여 Inference가 다 끝날 때까지 Capture Engine 스레드를 Block 하게 만들어 온전한 순서대로 프레임 캡처 -> 추론 -> GUI 에 표시 하는 Concurrent한 순서가 보장되도록 수정하니 잘 동작.
 ***
+
+## 4. Subproject - 30Fps
+
+* 웹캠 실시간 캡처에서 30Fps로 프레임이 생성될 때 이러한 프레임들이 기계학습 추론할 때 drop 되거나 block 되지 않게 하도록 추론 pipline을 수정
+* 33ms라면 대략 이 시간을 주기로 cap_ >> frame 에서 프레임이 생성됨
+* 그런데 여기서 추론시간이 33ms 가 넘어간다면 프레임이 지연되거나 dorp됨
+
+**시간측정**
+
+![screenshot](https://github.com/sejunkwonme/CVS/assets/firstresult.png)
