@@ -29,13 +29,16 @@ inferLock_(lock) {
     session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     session_options_.SetIntraOpNumThreads(1);
     session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+	//session_options_.DisableMemPattern();
+	//session_options_.DisableCpuMemArena();
 
     OrtCUDAProviderOptions cuda_options{};
     cuda_options.device_id = 0;
+	//cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
     try {
-        const wchar_t* model_w = L"D:/Repo/Yolov1/yolomodel.onnx";
+        const wchar_t* model_w = L"C:/Users/sejun/source/repos/CVS/yolomodel.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
         qDebug() << "Session created successfully (CUDA).";
     }
@@ -43,7 +46,7 @@ inferLock_(lock) {
         qCritical() << "CUDA session creation failed:" << e.what();
         qCritical() << "Falling back to CPU provider.";
         session_options_ = Ort::SessionOptions{};
-        const wchar_t* model_w = L"D:/Repo/Yolov1/yolomodel.onnx";
+        const wchar_t* model_w = L"C:/Users/sejun/source/repos/CVS/yolomodel.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
     }
 
@@ -74,7 +77,7 @@ InferenceWorker::~InferenceWorker() {
 void InferenceWorker::run() {
 	qDebug() << "inferencing";
 
-	testCudaKernel();
+	//testCudaKernel();
 
 	QElapsedTimer t_all;
 	t_all.start();
@@ -90,7 +93,7 @@ void InferenceWorker::run() {
 		false,
 		true,
 		CV_32F
-	);
+	);	
 	inferLock_->unlock();
 	qint64 ns_blob = t_blob.nsecsElapsed();
 	qDebug() << "[blob] latency =" << ns_blob / 1e03 << "us";
@@ -141,7 +144,6 @@ void InferenceWorker::run() {
 
 	for (int i = 0; i < S; ++i) {
 		for (int j = 0; j < S; ++j) {
-			// 20개의 클래스중 제일 높은 확률 구하기
 			const int offset = S * S;
 
 			int   best_id = 0;
@@ -158,11 +160,9 @@ void InferenceWorker::run() {
 			int   class_id = best_id;
 			float class_conf = best_v;
 
-			// 각 박스 2개의 score 구하기
 			float boxScore1 = class_conf * preds[(i * S + j) + (20 * offset)];
 			float boxScore2 = class_conf * preds[(i * S + j) + (25 * offset)];
 
-			// 각 박스의 좌표 다시 픽셀좌표계로 복원
 			float x1, y1, w1, h1;
 			x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
 			y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
@@ -256,7 +256,7 @@ void InferenceWorker::testCudaKernel() {
 	cudaMalloc((void**)&d_data, sizeof(float) * N);
 	cudaMemcpy(d_data, h_data, sizeof(float) * N, cudaMemcpyHostToDevice);
 
-	launchMyKernel(d_data, N, 0);   // 당신이 만든 launcher 호출
+	launchMyKernel(d_data, N, 0);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(h_data, d_data, sizeof(float) * N, cudaMemcpyDeviceToHost);
