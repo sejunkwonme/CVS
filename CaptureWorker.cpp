@@ -8,9 +8,21 @@ tmp_(),
 running_(false),
 lock_(lock),
 frame_(frame) {
+    cudaStreamCreateWithFlags(&preProcessStream, cudaStreamNonBlocking);
+    cudaMalloc((void**)&d_capture, sizeof(unsigned char) * 640 * 480 * 2);
+    cudaMalloc((void**)&d_gui_image_BGR, sizeof(unsigned char) * 640 * 480 * 3);
+    cudaMalloc((void**)&d_ml_image_RGB, sizeof(float) * 640 * 480 * 3);
+    cudaMalloc((void**)&d_gui_image_BGR_cropped, sizeof(unsigned char) * 448 * 448 * 3);
+    cudaMalloc((void**)&d_ml_image_RGB_cropped, sizeof(float) * 448 * 448 * 3);
 }
 
 CaptureWorker::~CaptureWorker() {
+    cudaFree(d_capture);
+    cudaFree(d_gui_image_BGR);
+    cudaFree(d_ml_image_RGB);
+    cudaFree(d_gui_image_BGR_cropped);
+    cudaFree(d_ml_image_RGB_cropped);
+    cudaStreamDestroy(preProcessStream);
 }
 
 void CaptureWorker::run() {
@@ -34,23 +46,17 @@ void CaptureWorker::captureOneFrame() {
         return;
     }
 
-    cv::Mat rgb;
-    cv::Mat cropped;
+    cv::Mat processed(448,448,CV_8UC3);
     while (running_) {
         cap_ >> tmp_;
+        cudaMemcpy(d_capture, tmp_.data, sizeof(unsigned char) * 640 * 480 * 2, cudaMemcpyHostToDevice);
+        launchYUV2RGB(d_capture, d_gui_image_BGR, d_ml_image_RGB, preProcessStream);
+        launchCROP(d_gui_image_BGR, d_ml_image_RGB, d_gui_image_BGR_cropped, d_ml_image_RGB_cropped, preProcessStream);
+        cudaStreamSynchronize(preProcessStream);
+        cudaMemcpy(processed.data, d_gui_image_BGR_cropped, sizeof(unsigned char) * 448 * 448 * 3, cudaMemcpyDeviceToHost);
 
-        cv::Rect roi(
-            (tmp_.cols - 448) / 2,
-            (tmp_.rows - 448) / 2,
-            448, 448
-        );
-
-        cropped = tmp_(roi).clone();
-
-        cv::cvtColor(cropped, rgb, cv::COLOR_YUV2RGB_YUY2);
-        
         lock_->lock();
-        rgb.copyTo(frame_);
+        processed.copyTo(frame_);
         lock_->unlock();
 
         emit frameCaptured();

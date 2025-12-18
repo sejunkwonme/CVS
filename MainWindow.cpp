@@ -96,7 +96,7 @@ void MainWindow::updateFrame(cv::Mat mat) {
         currentFrame_.cols,
         currentFrame_.rows,
         currentFrame_.step,
-        QImage::Format_RGB888);
+        QImage::Format_BGR888);
 
     QPixmap pixmap = QPixmap::fromImage(frame);
     imageLabel_->setPixmap(pixmap);
