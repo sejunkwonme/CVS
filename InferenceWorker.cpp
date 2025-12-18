@@ -38,7 +38,7 @@ inferLock_(lock) {
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
     try {
-        const wchar_t* model_w = L"C:/Users/sejun/source/repos/CVS/yolomodel.onnx";
+        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
         qDebug() << "Session created successfully (CUDA).";
     }
@@ -46,7 +46,7 @@ inferLock_(lock) {
         qCritical() << "CUDA session creation failed:" << e.what();
         qCritical() << "Falling back to CPU provider.";
         session_options_ = Ort::SessionOptions{};
-        const wchar_t* model_w = L"C:/Users/sejun/source/repos/CVS/yolomodel.onnx";
+        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
     }
 
@@ -142,16 +142,10 @@ void InferenceWorker::run() {
 	constexpr float score_thresh = 0.1f;
 	constexpr float nms_thresh = 0.5f;
 
-<<<<<<< HEAD
-	for (int i = 0; i < S; ++i) {
-		for (int j = 0; j < S; ++j) {
-			const int offset = S * S;
-=======
 	for (int cidx = 0; cidx < 20; cidx++) {
 		for (int i = 0; i < S; ++i) {
 			for (int j = 0; j < S; ++j) {
 				const int offset = S * S;
->>>>>>> 98ea909e091d226da01c789f196ce9b0390461b8
 
 
 				float boxScore1 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (20 * offset)];
@@ -204,59 +198,19 @@ void InferenceWorker::run() {
 			indices[cidx]
 		);
 
-<<<<<<< HEAD
-			float boxScore1 = class_conf * preds[(i * S + j) + (20 * offset)];
-			float boxScore2 = class_conf * preds[(i * S + j) + (25 * offset)];
-
-			float x1, y1, w1, h1;
-			x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
-			y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
-			w1 = preds[(i * S + j) + (23 * offset)] * 448;
-			h1 = preds[(i * S + j) + (24 * offset)] * 448;
-
-			float x2, y2, w2, h2;
-			x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
-			y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
-			w2 = preds[(i * S + j) + (28 * offset)] * 448;
-			h2 = preds[(i * S + j) + (29 * offset)] * 448;
-
-			cv::Rect2f box1(
-				x1 - (w1 / 2.0f),
-				y1 - (h1 / 2.0f),
-				w1,
-				h1
-			);
-
-			cv::Rect2f box2(
-				x2 - (w2 / 2.0f),
-				y2 - (h2 / 2.0f),
-				w2,
-				h2
-			);
-
-			boxes.push_back(box1);
-			boxes.push_back(box2);
-			scores.push_back(boxScore1);
-			scores.push_back(boxScore2);
-			cls_indices.push_back(class_id);
-			cls_indices.push_back(class_id);
-=======
-		for (int c = 0; c < 20 ; c++) {
+		for (int c = 0; c < 20; c++) {
 			for (int index : indices[c]) {
 				scoreMatrix.at<float>(c, index) = score[c][index];
 			}
->>>>>>> 98ea909e091d226da01c789f196ce9b0390461b8
 		}
 	}
 
-	
-
 	inferLock_->lock();
-	for (int boxidx = 0; boxidx < S * S * 2 - 1 ; boxidx++) {
+	for (int boxidx = 0; boxidx < S * S * 2 - 1; boxidx++) {
 		double maxScore;
 		int maxindex[2];
 		cv::minMaxIdx(scoreMatrix.col(boxidx), nullptr, &maxScore, nullptr, maxindex);
-		
+
 		if (maxScore > 0.0) {
 			cv::rectangle(
 				frame_,
@@ -265,31 +219,32 @@ void InferenceWorker::run() {
 				3
 			);
 
-			std::string text = classes[maxindex[0]];
+		std::string text = classes[maxindex[0]];
 
-			int baseline = 0;
-			cv::Size textSize = cv::getTextSize(
-				text,
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				2,
-				&baseline
-			);
+		int baseline = 0;
+		cv::Size textSize = cv::getTextSize(
+			text,
+			cv::FONT_HERSHEY_SIMPLEX,
+			0.6,
+			2,
+			&baseline
+		);
 
-			int textY = boxes[maxindex[0]][boxidx].y - 2;
-			if (textY < textSize.height)
-				textY = boxes[maxindex[0]][boxidx].y + textSize.height + 2;
+		int textY = boxes[maxindex[0]][boxidx].y - 2;
+		if (textY < textSize.height)
+			textY = boxes[maxindex[0]][boxidx].y + textSize.height + 2;
 
-			cv::Point org(boxes[maxindex[0]][boxidx].x, textY);
+		cv::Point org(boxes[maxindex[0]][boxidx].x, textY);
 
-			cv::putText(frame_, text, org,
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				cv::Scalar(0, 255, 0),
-				2);
+		cv::putText(frame_, text, org,
+			cv::FONT_HERSHEY_SIMPLEX,
+			0.6,
+			cv::Scalar(0, 255, 0),
+			2);
 		}
 	}
-	inferLock_->unlock(); 
+	inferLock_->unlock();
+
 	qint64 ns_post = post_t.nsecsElapsed();
 	qDebug() << "[Postprocess] latency =" << ns_post / 1e03 << "us";
 
