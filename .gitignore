@@ -41,5 +41,6 @@
 *.dwo
 
 *.onnx
+*.onnx.data
 .vs
 out
