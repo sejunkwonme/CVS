@@ -74,7 +74,7 @@ InferenceWorker::~InferenceWorker() {
 void InferenceWorker::run() {
 	qDebug() << "inferencing";
 
-	testCudaKernel();
+	//testCudaKernel();
 
 	QElapsedTimer t_all;
 	t_all.start();
@@ -130,115 +130,119 @@ void InferenceWorker::run() {
 	post_t.start();
 	float* preds = output_tensors.front().GetTensorMutableData<float>();
 
-	std::vector<cv::Rect> boxes;
-	std::vector<float> scores;
-	std::vector<int> nms_indices;
-	std::vector<int> cls_indices;
+	std::vector<std::vector<cv::Rect>> boxes(20);
+	std::vector<std::vector<float>> score(20);
+	std::vector<std::vector<int>> indices(20);
 	std::vector<std::string> classes = { "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
+	cv::Mat scoreMatrix(20, 98, CV_32F, cv::Scalar(0));
 
 	constexpr float score_thresh = 0.1f;
-	constexpr float nms_thresh = 0.3f;
+	constexpr float nms_thresh = 0.5f;
 
-	for (int i = 0; i < S; ++i) {
-		for (int j = 0; j < S; ++j) {
-			// 20개의 클래스중 제일 높은 확률 구하기
-			const int offset = S * S;
+	for (int cidx = 0; cidx < 20; cidx++) {
+		for (int i = 0; i < S; ++i) {
+			for (int j = 0; j < S; ++j) {
+				const int offset = S * S;
 
-			int   best_id = 0;
-			float best_v = -std::numeric_limits<float>::infinity();
 
-			for (int clsidx = 0; clsidx < 20; ++clsidx) {
-				float v = preds[(i * S + j) + (clsidx * offset)];
-				if (v > best_v) {
-					best_v = v;
-					best_id = clsidx;
-				}
+				float boxScore1 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (20 * offset)];
+				float boxScore2 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (25 * offset)];
+
+				float x1, y1, w1, h1;
+				x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
+				y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
+				w1 = preds[(i * S + j) + (23 * offset)] * 448;
+				h1 = preds[(i * S + j) + (24 * offset)] * 448;
+
+				float x2, y2, w2, h2;
+				x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
+				y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
+				w2 = preds[(i * S + j) + (28 * offset)] * 448;
+				h2 = preds[(i * S + j) + (29 * offset)] * 448;
+
+				cv::Rect2f box1(
+					x1 - (w1 / 2.0f),
+					y1 - (h1 / 2.0f),
+					w1,
+					h1
+				);
+
+				cv::Rect2f box2(
+					x2 - (w2 / 2.0f),
+					y2 - (h2 / 2.0f),
+					w2,
+					h2
+				);
+
+				boxes[cidx].push_back(box1);
+				boxes[cidx].push_back(box2);
+				//originalboxes[cidx].push_back(box1);
+				//originalboxes[cidx].push_back(box2);
+				score[cidx].push_back(boxScore1);
+				score[cidx].push_back(boxScore2);
+				//scoreMatrix[cidx].push_back(boxScore1);
+				//scoreMatrix[cidx].push_back(boxScore2);
+				//cls_indices[cidx].push_back(class_id);
+				//cls_indices[cidx].push_back(class_id);
 			}
+		}
 
-			int   class_id = best_id;
-			float class_conf = best_v;
+		cv::dnn::NMSBoxes(
+			boxes[cidx],
+			score[cidx],
+			score_thresh,
+			nms_thresh,
+			indices[cidx]
+		);
 
-			// 각 박스 2개의 score 구하기
-			float boxScore1 = class_conf * preds[(i * S + j) + (20 * offset)];
-			float boxScore2 = class_conf * preds[(i * S + j) + (25 * offset)];
-
-			// 각 박스의 좌표 다시 픽셀좌표계로 복원
-			float x1, y1, w1, h1;
-			x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
-			y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
-			w1 = preds[(i * S + j) + (23 * offset)] * 448;
-			h1 = preds[(i * S + j) + (24 * offset)] * 448;
-
-			float x2, y2, w2, h2;
-			x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
-			y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
-			w2 = preds[(i * S + j) + (28 * offset)] * 448;
-			h2 = preds[(i * S + j) + (29 * offset)] * 448;
-
-			cv::Rect2f box1(
-				x1 - (w1 / 2.0f),
-				y1 - (h1 / 2.0f),
-				w1,
-				h1
-			);
-
-			cv::Rect2f box2(
-				x2 - (w2 / 2.0f),
-				y2 - (h2 / 2.0f),
-				w2,
-				h2
-			);
-
-			boxes.push_back(box1);
-			boxes.push_back(box2);
-			scores.push_back(boxScore1);
-			scores.push_back(boxScore2);
-			cls_indices.push_back(class_id);
-			cls_indices.push_back(class_id);
+		for (int c = 0; c < 20 ; c++) {
+			for (int index : indices[c]) {
+				scoreMatrix.at<float>(c, index) = score[c][index];
+			}
 		}
 	}
 
-	cv::dnn::NMSBoxes(
-		boxes,
-		scores,
-		score_thresh,
-		nms_thresh,
-		nms_indices
-	);
+	
 
 	inferLock_->lock();
-	for (auto cls : nms_indices) {
-		cv::rectangle(
-			frame_,
-			boxes[cls],
-			cv::Scalar(0, 255, 0),
-			3
-		);
+	for (int boxidx = 0; boxidx < S * S * 2 - 1 ; boxidx++) {
+		double maxScore;
+		int maxindex[2];
+		cv::minMaxIdx(scoreMatrix.col(boxidx), nullptr, &maxScore, nullptr, maxindex);
+		
+		if (maxScore > 0.0) {
+			cv::rectangle(
+				frame_,
+				boxes[maxindex[0]][boxidx],
+				cv::Scalar(0, 255, 0),
+				3
+			);
 
-		std::string text = classes[cls_indices[cls]];
+			std::string text = classes[maxindex[0]];
 
-		int baseline = 0;
-		cv::Size textSize = cv::getTextSize(
-			text,
-			cv::FONT_HERSHEY_SIMPLEX,
-			0.6,
-			2,
-			&baseline
-		);
+			int baseline = 0;
+			cv::Size textSize = cv::getTextSize(
+				text,
+				cv::FONT_HERSHEY_SIMPLEX,
+				0.6,
+				2,
+				&baseline
+			);
 
-		int textY = boxes[cls].y - 2;
-		if (textY < textSize.height)
-			textY = boxes[cls].y + textSize.height + 2;
+			int textY = boxes[maxindex[0]][boxidx].y - 2;
+			if (textY < textSize.height)
+				textY = boxes[maxindex[0]][boxidx].y + textSize.height + 2;
 
-		cv::Point org(boxes[cls].x, textY);
+			cv::Point org(boxes[maxindex[0]][boxidx].x, textY);
 
-		cv::putText(frame_, text, org,
-			cv::FONT_HERSHEY_SIMPLEX,
-			0.6,
-			cv::Scalar(0, 255, 0),
-			2);
+			cv::putText(frame_, text, org,
+				cv::FONT_HERSHEY_SIMPLEX,
+				0.6,
+				cv::Scalar(0, 255, 0),
+				2);
+		}
 	}
-	inferLock_->unlock();
+	inferLock_->unlock(); 
 	qint64 ns_post = post_t.nsecsElapsed();
 	qDebug() << "[Postprocess] latency =" << ns_post / 1e03 << "us";
 
@@ -246,6 +250,7 @@ void InferenceWorker::run() {
 	qDebug() << "[All] latency =" << ns_all / 1e03 << "us";
 }
 
+/*
 void InferenceWorker::testCudaKernel() {
 	const int N = 10;
 	float h_data[N];
@@ -267,3 +272,4 @@ void InferenceWorker::testCudaKernel() {
 
 	cudaFree(d_data);
 }
+*/
