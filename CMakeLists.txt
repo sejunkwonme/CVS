@@ -25,12 +25,7 @@ add_library(CVS_CUDA STATIC
     kernel.cu
 )
 target_compile_options(CVS_CUDA PRIVATE
-    $<$<CONFIG:Debug>:
-        -G
-        -lineinfo
-        -Xcompiler=/Zi
-        -Xcompiler=/Od
-    >
+    $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
 )
 
 set_source_files_properties(kernel.cu PROPERTIES LANGUAGE CUDA)
@@ -43,7 +38,7 @@ target_include_directories(CVS_CUDA PUBLIC
 )
 set_target_properties(CVS_CUDA PROPERTIES
     CUDA_SEPARABLE_COMPILATION OFF
-    CUDA_ARCHITECTURES 86  # RTX 3090
+    CUDA_ARCHITECTURES 61 75 86  # RTX 3090
 )
 
 #set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo -Xcompiler=\"/Zi /Od\"")

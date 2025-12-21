@@ -136,8 +136,8 @@ void InferenceWorker::run() {
 	std::vector<std::string> classes = { "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
 	cv::Mat scoreMatrix(20, 98, CV_32F, cv::Scalar(0));
 
-	constexpr float score_thresh = 0.1f;
-	constexpr float nms_thresh = 0.5f;
+	constexpr float score_thresh = 0.2f;
+	constexpr float nms_thresh = 0.6f;
 
 	for (int cidx = 0; cidx < 20; cidx++) {
 		for (int i = 0; i < S; ++i) {
