@@ -92,4 +92,16 @@
 
 **실제 적용**
 
-*cv::cvtColor와 cv::Crop을 CUDA커널로 구현하여 이미지 전처리 오버헤드 줄이기
+* 1단계
+* 현재 상태는 웹캠에서 최초 프레임 생성 후 [Cap Overhead] -> [blob] -> [ORT Run] ->	 [Postprocess] 순서대로 진행되고 있음
+* [Cap Overhead] 는 raw YUV2로 나온 이미지를 처리하는 cv::cvtColor와 cv::Crop을 포함함
+* [blob]은 interleaved BGR로 정렬되어 있는 이미지를 planar RGB 로 바꿔주고, float32 [0.0:1.0] 범위로 스케일링도 해줌
+  - CUDA커널을 작성하여 위의 3개의 과정을 2개의 CUDA커널로 작성후 시간 단축함
+  - (Cap Overhaed 의 1.5ms + blob 의 2.5ms)[약 4~5~ms] -> 총합 약 0.5~6~ms로 단축
+![screenshot2](/assets/figure2.png)
+
+* 2단계
+* 전처리 단계를 단축 하고도 현재는 여전히 ONNX Runtime에서 CPU Tensor를 받아서 추론을 진행중임 이는 Ort Session Run 의 병목현상을 불러옴
+* cudamemcpy로 전처리 결과를 Host로 꺼내올 필요 없이 zero-copy로 이미지 전처리 완료되면 바로 Device memory를 참조하여 추론을 실행하도록 구현
+* ort::session->run 시간 미세하게 단축됨 (약 1~2ms)
+![screenshot3](/assets/figure3.png)
