@@ -59,7 +59,7 @@ void CaptureWorker::captureOneFrame() {
         processed.copyTo(frame_);
         lock_->unlock();
 
-        emit frameCaptured();
+        emit frameCaptured(d_ml_image_RGB_cropped);
     }
     emit captureFinished();
 }

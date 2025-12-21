@@ -31,6 +31,6 @@ private:
 	float* d_ml_image_RGB_cropped;
 	
 signals:
-	void frameCaptured();
+	void frameCaptured(float* d_ml_image);
 	void captureFinished();
 };

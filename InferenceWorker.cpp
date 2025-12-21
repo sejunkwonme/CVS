@@ -73,27 +73,14 @@ InferenceWorker::~InferenceWorker() {
     ort_session_ = nullptr;
 }
 
-void InferenceWorker::run() {
+void InferenceWorker::run(float* d_ml_image) {
 	qDebug() << "inferencing";
 
 	QElapsedTimer t_all;
 	t_all.start();
 
-	QElapsedTimer t_blob;
-	t_blob.start();
-	inferLock_->lock();
-	cv::Mat blob = cv::dnn::blobFromImage(
-		frame_,
-		1.0 / 255.0,
-		cv::Size(448, 448),
-		cv::Scalar(),
-		false,
-		true,
-		CV_32F
-	);	
-	inferLock_->unlock();
-	qint64 ns_blob = t_blob.nsecsElapsed();
-	qDebug() << "[blob] latency =" << ns_blob / 1e03 << "us";
+	cv::Mat blob(448, 448, CV_32FC3);
+	cudaMemcpy(blob.data, d_ml_image, sizeof(float) * 448 * 448 * 3,cudaMemcpyDeviceToHost);
 
 	constexpr int S = 7, B = 2, C = 20;
 	constexpr int H = 448, W = 448;

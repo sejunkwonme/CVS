@@ -19,7 +19,7 @@ public:
 	~InferenceWorker();
 
 private:
-	Q_INVOKABLE void run();
+	Q_INVOKABLE void run(float* d_ml_image);
 
     Ort::Env ort_env_{ ORT_LOGGING_LEVEL_WARNING, "YOLOv1" };
     Ort::Session* ort_session_;
@@ -30,7 +30,6 @@ private:
     std::string input_name_str_;
     std::string output_name_str_;
     float* dptr_;
-    void testCudaKernel();
 
     QMutex* inferLock_;
     cv::Mat frame_;
