@@ -10,7 +10,7 @@ class CaptureController : public QObject {
 	Q_OBJECT
 
 public:
-	CaptureController(QObject* parent, cv::Mat frame, QMutex* lock);
+	CaptureController(QObject* parent, cv::Mat frame, QMutex* lock, float** ml_image);
 	~CaptureController();
 	bool state();
 
@@ -24,6 +24,7 @@ private:
 	QMutex* captureLock_;
 	std::string pipeline_;
 	cv::Mat frame_;
+	float** ml_image_;
 
 
 public slots:

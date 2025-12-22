@@ -1,13 +1,14 @@
 #include "CaptureController.h"
 
-CaptureController::CaptureController(QObject *parent, cv::Mat frame, QMutex* lock)
+CaptureController::CaptureController(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image)
 : QObject(parent),
 captureLock_(lock),
 frame_(frame) {
 	pipeline_ =
-		"mfvideosrc device-index=0 "
-		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1, auto-focus = 1"
+		"mfvideosrc device-index=1 "
+		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1"
 		"! appsink drop=true max-buffers=1 sync=false";
+	ml_image_ = ml_image;
 }
 
 CaptureController::~CaptureController() {
@@ -15,7 +16,7 @@ CaptureController::~CaptureController() {
 
 void CaptureController::createCamera() {
 	thread_ = new QThread(this);
-	worker_ = new CaptureWorker(nullptr, pipeline_, frame_, captureLock_);
+	worker_ = new CaptureWorker(nullptr, pipeline_, frame_, captureLock_, ml_image_);
 
 	connect(worker_, &CaptureWorker::captureFinished, this, &CaptureController::deleteAfterWait);
 

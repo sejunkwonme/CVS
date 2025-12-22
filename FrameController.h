@@ -28,6 +28,7 @@ private:
 	CaptureController* capC_;
 	InferenceController* inferC_;
 	MainWindow* mainW_;
+	float* ml_image_;
 
 public slots:
 	void passThroughToGUI();

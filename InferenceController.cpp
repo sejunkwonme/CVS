@@ -1,21 +1,21 @@
 #include "InferenceController.h"
 
 
-InferenceController::InferenceController(QObject* parent, cv::Mat frame, QMutex* lock)
+InferenceController::InferenceController(QObject* parent, cv::Mat frame, QMutex* lock, float** ml_image)
 : QObject(parent),
 frame_(frame),
 inferLock_(lock),
 inferencing_(false) {
-	createModel();
+	createModel(ml_image);
 }
 
 InferenceController::~InferenceController() {
 	destroyModel();
 }
 
-void InferenceController::createModel() {
+void InferenceController::createModel(float** ml_image_addr) {
 	thread_ = new QThread(this);
-	worker_ = new InferenceWorker(nullptr, frame_, inferLock_);
+	worker_ = new InferenceWorker(nullptr, frame_, inferLock_, ml_image_addr);
 	worker_->moveToThread(thread_);
 	thread_->start();
 }

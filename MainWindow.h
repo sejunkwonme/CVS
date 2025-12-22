@@ -32,6 +32,9 @@ private:
 
     cv::Mat currentFrame_;
 
+    QElapsedTimer fpsTimer_;
+    qint64 prevNs_ = -1;
+
 public slots:
     void updateFrame(cv::Mat mat);
 signals:

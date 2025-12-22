@@ -1,10 +1,12 @@
 #include "FrameController.h"
+#include <cuda_runtime_api.h> 
 
 FrameController::FrameController(QObject* parent, MainWindow* mainW)
 : QObject(parent),
 frame_(cv::Mat(448,448,CV_8UC3)),
 lock_(new QMutex()),
 mainW_(mainW) {
+	cudaMalloc((void**)&ml_image_, sizeof(float) * 1 * 3 * 448 * 448);
 }
 
 FrameController::~FrameController() {
@@ -34,8 +36,8 @@ void FrameController::passThroughToGUI() {
 }
 
 void FrameController::initialize() {
-	capC_ = new CaptureController(this, frame_, lock_);
-	inferC_ = new InferenceController(this, frame_, lock_);
+	capC_ = new CaptureController(this, frame_, lock_, &ml_image_);
+	inferC_ = new InferenceController(this, frame_, lock_, &ml_image_);
 	createWorker();
 	connect(mainW_, &MainWindow::startCameraRequest,
 		capC_, &CaptureController::startCapture);

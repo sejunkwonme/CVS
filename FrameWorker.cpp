@@ -14,13 +14,12 @@ void FrameWorker::run() {
 
 
     connect(capC_->worker_, &CaptureWorker::frameCaptured,
-        this, [&](float* d_ml_image) {
+        this, [&]() {
             if (inferC_->state()) {
                 QMetaObject::invokeMethod(
                     inferC_->worker_,
                     "run",
-                    Qt::BlockingQueuedConnection,
-                    Q_ARG(float*, d_ml_image)
+                    Qt::BlockingQueuedConnection
                 );
                 emit withInference();
             }

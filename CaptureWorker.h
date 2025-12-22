@@ -11,7 +11,7 @@ class CaptureWorker  : public QObject {
 	Q_OBJECT
 
 public:
-	CaptureWorker(QObject *parent, std::string pieline, cv::Mat frame, QMutex* lock);
+	CaptureWorker(QObject *parent, std::string pieline, cv::Mat frame, QMutex* lock, float** ml_image);
 	~CaptureWorker();
 	bool running_;
 
@@ -29,8 +29,9 @@ private:
 	float* d_ml_image_RGB;
 	unsigned char* d_gui_image_BGR_cropped;
 	float* d_ml_image_RGB_cropped;
+	float** ml_image_addr_;
 	
 signals:
-	void frameCaptured(float* d_ml_image);
+	void frameCaptured();
 	void captureFinished();
 };

@@ -15,12 +15,11 @@ class InferenceWorker  : public QObject
 	Q_OBJECT
 
 public:
-	InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock);
+	InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image);
 	~InferenceWorker();
 
 private:
-	Q_INVOKABLE void run(float* d_ml_image);
-
+	Q_INVOKABLE void run();
     Ort::Env ort_env_{ ORT_LOGGING_LEVEL_WARNING, "YOLOv1" };
     Ort::Session* ort_session_;
     Ort::SessionOptions session_options_;
@@ -29,7 +28,12 @@ private:
     std::vector<const char*> output_names_;
     std::string input_name_str_;
     std::string output_name_str_;
-    float* dptr_;
+    Ort::Value input_gpu_;
+    Ort::Value output_gpu_;
+    float* d_out_;
+    float* test_;
+    float** ml_image_addr_;
+    Ort::IoBinding* binding_;
 
     QMutex* inferLock_;
     cv::Mat frame_;

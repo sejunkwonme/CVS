@@ -1,9 +1,11 @@
 #include "InferenceWorker.h"
 
-InferenceWorker::InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock)
+InferenceWorker::InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image_addr)
 : QObject(parent),
 frame_(frame),
-inferLock_(lock) {
+inferLock_(lock),
+d_out_(),
+ml_image_addr_(ml_image_addr){
     int device_count = 0;
     cudaGetDeviceCount(&device_count);
 
@@ -34,7 +36,7 @@ inferLock_(lock) {
 
     OrtCUDAProviderOptions cuda_options{};
     cuda_options.device_id = 0;
-	//cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
+	cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
     try {
@@ -65,7 +67,28 @@ inferLock_(lock) {
     
     qDebug() << "YOLOv1 ONNX model ready.";
 
-	cudaMalloc((void**)&dptr_, sizeof(float) * 10);
+	auto cuda_mem = Ort::MemoryInfo("Cuda", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemTypeDefault);
+
+	// input device 텐서 미리 정의
+	std::array<int64_t, 4> input_shape{ 1, 3, 448, 448 };
+	input_gpu_ = Ort::Value::CreateTensor<float>(
+		cuda_mem,
+		*ml_image_addr_,
+		1 * 3 * 448 * 448,
+		input_shape.data(),
+		input_shape.size()
+	);
+
+	// output device 텐서 미리 정의
+	std::array<int64_t, 2> out_shape{ 1, 1470 };
+	cudaMalloc((void**)&d_out_, 1 * 30 * 7 * 7 * sizeof(float));
+	output_gpu_ = Ort::Value::CreateTensor<float>(
+		cuda_mem,
+		d_out_,
+		1 * 30 * 7 * 7,
+		out_shape.data(),
+		out_shape.size()
+	);
 }
 
 InferenceWorker::~InferenceWorker() {
@@ -73,49 +96,32 @@ InferenceWorker::~InferenceWorker() {
     ort_session_ = nullptr;
 }
 
-void InferenceWorker::run(float* d_ml_image) {
+void InferenceWorker::run() {
 	qDebug() << "inferencing";
 
 	QElapsedTimer t_all;
 	t_all.start();
 
-	cv::Mat blob(448, 448, CV_32FC3);
-	cudaMemcpy(blob.data, d_ml_image, sizeof(float) * 448 * 448 * 3,cudaMemcpyDeviceToHost);
-
 	constexpr int S = 7, B = 2, C = 20;
 	constexpr int H = 448, W = 448;
-	constexpr std::array<int64_t, 4> input_shape{ 1, 3, 448, 448 };
 
-	std::vector<float> input_tensor_values(1 * 3 * H * W);
-
-	float* blob_data = blob.ptr<float>();
-	const Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(
-		OrtAllocatorType::OrtArenaAllocator, OrtMemTypeDefault
-	);
-
-	const Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-		memory_info,
-		blob_data,
-		1 * 3 * 448 * 448,
-		input_shape.data(),
-		input_shape.size()
-	);
-
+	Ort::IoBinding binding(*ort_session_);
+	binding.BindInput(input_name_str_.c_str(), input_gpu_);
+	binding.BindOutput(output_name_str_.c_str(), output_gpu_);
+	
 	QElapsedTimer t;
 	t.start();
-	auto output_tensors = ort_session_->Run(
-		Ort::RunOptions{ nullptr },
-		input_names_.data(), &input_tensor, 1,
-		output_names_.data(), 1
-	);
+	ort_session_->Run(Ort::RunOptions{ nullptr }, binding);
+	cudaDeviceSynchronize();
 	qint64 ns = t.nsecsElapsed();
-
 	qDebug() << "[ORT Run] latency =" << ns / 1e03 << "us";
 
 
 	QElapsedTimer post_t;
 	post_t.start();
-	float* preds = output_tensors.front().GetTensorMutableData<float>();
+
+	float preds[1470];
+	cudaMemcpy(preds, d_out_, sizeof(float) * 1470, cudaMemcpyDeviceToHost);
 
 	std::vector<std::vector<cv::Rect>> boxes(20);
 	std::vector<std::vector<float>> score(20);

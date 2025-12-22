@@ -9,13 +9,13 @@ class InferenceController : public QObject {
 	Q_OBJECT
 
 public:
-	InferenceController(QObject* parent, cv::Mat frame, QMutex* lock);
+	InferenceController(QObject* parent, cv::Mat frame, QMutex* lock, float** ml_image);
 	~InferenceController();
 	bool state();
 	InferenceWorker* worker_;
 
 private:
-	void createModel();
+	void createModel(float** ml_image);
 	void destroyModel();
 
 	QThread* thread_;

@@ -87,6 +87,21 @@ void MainWindow::createActions() {
 }
 
 void MainWindow::updateFrame(cv::Mat mat) {
+    if (!fpsTimer_.isValid()) {
+        fpsTimer_.start();
+        prevNs_ = fpsTimer_.nsecsElapsed();
+    }
+    else {
+        qint64 nowNs = fpsTimer_.nsecsElapsed();
+        qint64 dtNs = nowNs - prevNs_;
+        prevNs_ = nowNs;
+
+        if (dtNs > 0) {
+            double fps = 1e9 / static_cast<double>(dtNs);
+            qDebug() << "[updateFrame] FPS =" << fps;
+        }
+    }
+
     dataLock_->lock();
     currentFrame_ = mat.clone();
     dataLock_->unlock();
