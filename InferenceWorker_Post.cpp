@@ -1,6 +1,6 @@
 #include "InferenceWorker_Post.h"
 
-InferenceWorker_Post::InferenceWorker_Post(QObject *parent, cv::Mat frame, QMutex* lock, float* ml_middle_image)
+InferenceWorker_Post::InferenceWorker_Post(QObject *parent, float* ml_middle_image)
 : QObject(parent) {
 	middle_image_ = ml_middle_image;
 	cudaStreamCreateWithFlags(&head_stream_, cudaStreamNonBlocking);
@@ -27,8 +27,8 @@ InferenceWorker_Post::InferenceWorker_Post(QObject *parent, cv::Mat frame, QMute
 	}
 
 	session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_BASIC);
-	session_options_.SetIntraOpNumThreads(1);
-	session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+	//session_options_.SetIntraOpNumThreads(1);
+	//session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
 
 	OrtCUDAProviderOptions cuda_options{};
@@ -91,37 +91,32 @@ InferenceWorker_Post::InferenceWorker_Post(QObject *parent, cv::Mat frame, QMute
 	binding_ = new Ort::IoBinding (*ort_session_);
 	binding_->BindInput(input_name_str_.c_str(), input_gpu_);
 	binding_->BindOutput(output_name_str_.c_str(), output_gpu_);
-
-	run_opts_.AddConfigEntry("disable_synchronize_execution_providers", "1");
 }
 
 InferenceWorker_Post::~InferenceWorker_Post() {
+
 }
 
-void InferenceWorker_Post::run() {
+void InferenceWorker_Post::run(quintptr event, uint64_t framecount) {
 	constexpr int S = 7, B = 2, C = 20;
 	constexpr int H = 448, W = 448;
-
-	//cudaEvent_t e0, e1;
-	//cudaEventCreate(&e0);
-	//cudaEventCreate(&e1);
-
-	//cudaEventRecord(e0, head_stream_);
-	ort_session_->Run(run_opts_, *binding_);
-	//cudaEventRecord(e1, head_stream_);
-	//cudaEventSynchronize(e1);
-
-	//float ms = 0.f;
-	//cudaEventElapsedTime(&ms, e0, e1);
-	//qDebug() << "[head - runtime]" << ms << "ms";
-
 	float preds[1470];
-	//cudaMemcpy(preds, d_out_, sizeof(float) * 1470, cudaMemcpyDeviceToHost);
-	/*
+
+	// backboneEvent_ 가 끝나길 기다린다 gpu에서
+	cudaError_t st = cudaStreamWaitEvent(head_stream_,reinterpret_cast<cudaEvent_t>(event));  // 여기서 CPU 블록
+	if (st != cudaSuccess) {
+		qDebug() << "cudaEventSynchronize failed:" << cudaGetErrorString(st);
+		return;
+	}
+	ort_session_->Run(Ort::RunOptions{nullptr}, *binding_);
+	cudaStreamSynchronize(head_stream_);
+	cudaMemcpy(preds, d_out_, sizeof(float) * 1470, cudaMemcpyDeviceToHost);
+	
 	std::vector<std::vector<cv::Rect>> boxes(20);
 	std::vector<std::vector<float>> score(20);
 	std::vector<std::vector<int>> indices(20);
-	std::vector<std::string> classes = { "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
+	std::vector<cv::Rect2f> finalBoxes;
+	std::vector<int> finalclasses;
 	cv::Mat scoreMatrix(20, 98, CV_32F, cv::Scalar(0));
 
 	constexpr float score_thresh = 0.2f;
@@ -131,17 +126,13 @@ void InferenceWorker_Post::run() {
 		for (int i = 0; i < S; ++i) {
 			for (int j = 0; j < S; ++j) {
 				const int offset = S * S;
-
-
 				float boxScore1 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (20 * offset)];
 				float boxScore2 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (25 * offset)];
-
 				float x1, y1, w1, h1;
 				x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
 				y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
 				w1 = preds[(i * S + j) + (23 * offset)] * 448;
 				h1 = preds[(i * S + j) + (24 * offset)] * 448;
-
 				float x2, y2, w2, h2;
 				x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
 				y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
@@ -168,7 +159,6 @@ void InferenceWorker_Post::run() {
 				score[cidx].push_back(boxScore2);
 			}
 		}
-
 		cv::dnn::NMSBoxes(
 			boxes[cidx],
 			score[cidx],
@@ -176,53 +166,23 @@ void InferenceWorker_Post::run() {
 			nms_thresh,
 			indices[cidx]
 		);
-
 		for (int c = 0; c < 20; c++) {
 			for (int index : indices[c]) {
 				scoreMatrix.at<float>(c, index) = score[c][index];
 			}
 		}
 	}
-	*/
-	/*
-	inferLock_->lock();
-	for (int boxidx = 0; boxidx < S * S * 2 - 1; boxidx++) {
+
+	for (int boxidx = 0 ; boxidx < S * S * 2 ; boxidx++) {
 		double maxScore;
 		int maxindex[2];
 		cv::minMaxIdx(scoreMatrix.col(boxidx), nullptr, &maxScore, nullptr, maxindex);
 
 		if (maxScore > 0.0) {
-			cv::rectangle(
-				frame_,
-				boxes[maxindex[0]][boxidx],
-				cv::Scalar(0, 255, 0),
-				3
-			);
-
-			std::string text = classes[maxindex[0]];
-
-			int baseline = 0;
-			cv::Size textSize = cv::getTextSize(
-				text,
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				2,
-				&baseline
-			);
-
-			int textY = boxes[maxindex[0]][boxidx].y - 2;
-			if (textY < textSize.height)
-				textY = boxes[maxindex[0]][boxidx].y + textSize.height + 2;
-
-			cv::Point org(boxes[maxindex[0]][boxidx].x, textY);
-
-			cv::putText(frame_, text, org,
-				cv::FONT_HERSHEY_SIMPLEX,
-				0.6,
-				cv::Scalar(0, 255, 0),
-				2);
+			finalBoxes.push_back(boxes[maxindex[0]][boxidx]);
+			finalclasses.push_back(maxindex[0]);
 		}
 	}
-	inferLock_->unlock();
-	*/
+
+	emit boundingboxReady(finalBoxes, finalclasses, framecount);
 }

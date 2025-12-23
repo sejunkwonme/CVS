@@ -7,13 +7,11 @@
 #include <opencv2/opencv.hpp>
 
 class CaptureController : public QObject {
-	Q_OBJECT
+Q_OBJECT
 
 public:
-	CaptureController(QObject* parent, cv::Mat frame, QMutex* lock, float** ml_image, unsigned char** gui_image);
+	CaptureController(QObject* parent, float** ml_image, unsigned char** gui_image);
 	~CaptureController();
-	bool state();
-
 	CaptureWorker* worker_;
 
 private:

@@ -1,25 +1,25 @@
 #pragma once
 
 #include <QObject>
-#include "opencv2/opencv.hpp"
+#include <QDebug>
+#include <opencv2/opencv.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <cuda_runtime_api.h> 
-#include <QMutex>
-#include <QDebug>
 #include <QElapsedTimer>
 #include <opencv2/dnn/dnn.hpp>
 #include "kernel.cuh"
 
-class InferenceWorker  : public QObject
-{
-	Q_OBJECT
+class InferenceWorker  : public QObject {
+Q_OBJECT
 
 public:
-	InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image, float* ml_middle_image);
+	InferenceWorker(QObject *parent, float** ml_image, float* ml_middle_image);
 	~InferenceWorker();
 
+public slots:
+    Q_INVOKABLE void run(uint64_t);
+
 private:
-	Q_INVOKABLE void run();
     Ort::Env ort_env_{ ORT_LOGGING_LEVEL_WARNING, "YOLOv1-backbone" };
     Ort::Session* ort_session_;
     Ort::SessionOptions session_options_;
@@ -30,16 +30,13 @@ private:
     std::string output_name_str_;
     Ort::Value input_gpu_;
     Ort::Value output_gpu_;
-    Ort::RunOptions run_opts_;
 
     float** ml_image_addr_;
     float* ml_middle_image_;
     Ort::IoBinding* binding_;
-    cudaStream_t ort_stream_{};
-
-    QMutex* inferLock_;
-    cv::Mat frame_;
+    cudaStream_t backboneStream_;
+    cudaEvent_t backboneEvent_;
 
 signals:
-    void backboneReady();
+    void backboneReady(quintptr, uint64_t);
 };

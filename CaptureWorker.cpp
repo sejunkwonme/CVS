@@ -1,18 +1,16 @@
 #include "CaptureWorker.h"
 #include "MainWindow.h"
 
-CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, cv::Mat frame, QMutex* lock, float** ml_image, unsigned char** gui_image)
+CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, float** ml_image, unsigned char** gui_image)
 : QObject(parent),
 cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
 tmp_(),
-running_(false),
-lock_(lock),
-frame_(frame) {
+running_(false) {
     ml_image_addr_ = ml_image;
     gui_image_addr_ = gui_image;
     cudaStreamCreateWithFlags(&preProcessStream, cudaStreamNonBlocking);
     cudaMalloc((void**)&d_capture, sizeof(unsigned char) * 640 * 480 * 2);
-    cudaEventCreateWithFlags(&preprocess_done_, cudaEventDisableTiming);
+    frame_count_ = 0;
 }
 
 CaptureWorker::~CaptureWorker() {
@@ -41,14 +39,14 @@ void CaptureWorker::captureOneFrame() {
         return;
     }
 
-    cv::Mat processed(448, 448, CV_8UC3);
     while (running_) {
         cap_ >> tmp_;
         cudaMemcpy(d_capture, tmp_.data, sizeof(unsigned char) * 640 * 480 * 2, cudaMemcpyHostToDevice);
         launchPREPROCESS(d_capture, *gui_image_addr_, *ml_image_addr_, preProcessStream);
-        cudaEventRecord(preprocess_done_, preProcessStream);
+        cudaStreamSynchronize(preProcessStream);
 
-        emit frameCaptured(reinterpret_cast<quintptr>(preprocess_done_));
+        emit frameCaptured(frame_count_);
+        frame_count_++;
     }
     emit captureFinished();
 }

@@ -11,19 +11,18 @@ class FrameWorker  : public QObject {
 	Q_OBJECT
 
 public:
-	FrameWorker(QObject *parent, CaptureController* capC, InferenceController* inferC);
+	FrameWorker(QObject *parent, CaptureController* capC, InferenceController* inferC, cv::Mat(&frame)[2], unsigned char* gui_image);
 	~FrameWorker();
-	Q_INVOKABLE void run();
 
 private:
 	CaptureController* capC_;
 	InferenceController* inferC_;
+	cv::Mat frame_[2];
+	unsigned char* gui_image_;
 
 signals:
-	void withInference(quintptr event);
-	void noInference(quintptr event);
-	void frameReady(quintptr event);
-
+	void renderCompleted(cv::Mat);
 public slots:
-	void finalFrameGenerated(quintptr event);
+	void writeBuffer(uint64_t framecount);
+	void renderImage(std::vector<cv::Rect2f>, std::vector<int>, uint64_t);
 };

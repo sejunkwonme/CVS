@@ -1,12 +1,10 @@
 #include "InferenceWorker.h"
 
-InferenceWorker::InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image_addr, float* ml_middle_image)
+InferenceWorker::InferenceWorker(QObject *parent, float** ml_image_addr, float* ml_middle_image)
 : QObject(parent),
-frame_(frame),
-inferLock_(lock),
 ml_image_addr_(ml_image_addr),
-ml_middle_image_(ml_middle_image){
-    cudaStreamCreateWithFlags(&ort_stream_, cudaStreamNonBlocking);
+ml_middle_image_(ml_middle_image) {
+    cudaStreamCreateWithFlags(&backboneStream_, cudaStreamNonBlocking);
     int device_count = 0;
     cudaGetDeviceCount(&device_count);
 
@@ -25,14 +23,14 @@ ml_middle_image_(ml_middle_image){
     qDebug() << "Selected CUDA device:" << selected_id;
 
     session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_BASIC);
-    session_options_.SetIntraOpNumThreads(1);
-    session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    //session_options_.SetIntraOpNumThreads(1);
+    //session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
     OrtCUDAProviderOptions cuda_options{};
 
     cuda_options.device_id = 0;
     cuda_options.has_user_compute_stream = 1;
-    cuda_options.user_compute_stream = (void*)ort_stream_;
+    cuda_options.user_compute_stream = (void*)backboneStream_;
     cuda_options.do_copy_in_default_stream = 0;
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
@@ -89,32 +87,21 @@ ml_middle_image_(ml_middle_image){
     binding_->BindInput(input_name_str_.c_str(), input_gpu_);
     binding_->BindOutput(output_name_str_.c_str(), output_gpu_);
 
-    run_opts_.AddConfigEntry("disable_synchronize_execution_providers", "1");
+    cudaEventCreateWithFlags(&backboneEvent_, cudaEventDisableTiming);
 }
 
 InferenceWorker::~InferenceWorker() {
     delete ort_session_;
     ort_session_ = nullptr;
 
-    if (ort_stream_) {
-        cudaStreamDestroy(ort_stream_);
-        ort_stream_ = nullptr;
+    if (backboneStream_) {
+        cudaStreamDestroy(backboneStream_);
+        backboneStream_ = nullptr;
     }
 }
 
-void InferenceWorker::run() {
-    cudaEvent_t e0, e1;
-    cudaEventCreate(&e0);
-    cudaEventCreate(&e1);
-	
-    cudaEventRecord(e0, ort_stream_);
-	ort_session_->Run(run_opts_, *binding_);
-    cudaEventRecord(e1, ort_stream_);
-    cudaEventSynchronize(e1);
-
-    float ms = 0.f;
-    cudaEventElapsedTime(&ms, e0, e1);
-    qDebug() << "[CONV20 - runtime]" << ms << "ms";
-
-    emit backboneReady();
+void InferenceWorker::run(uint64_t framecount) {
+	ort_session_->Run(Ort::RunOptions{nullptr}, *binding_);
+    cudaEventRecord(backboneEvent_, backboneStream_);
+    emit backboneReady(reinterpret_cast<quintptr>(backboneEvent_), framecount);
 }

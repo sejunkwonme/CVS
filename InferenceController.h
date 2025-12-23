@@ -7,10 +7,10 @@
 #include "InferenceWorker_Post.h"
 
 class InferenceController : public QObject {
-	Q_OBJECT
+Q_OBJECT
 
 public:
-	InferenceController(QObject* parent, cv::Mat frame, QMutex* lock, float** ml_image);
+	InferenceController(QObject* parent, float** ml_image);
 	~InferenceController();
 	bool state();
 	InferenceWorker* worker_;
@@ -22,12 +22,5 @@ private:
 
 	QThread* thread_;
 	QThread* thread_post_;
-	cv::Mat frame_;
-	QMutex* inferLock_;
-	bool inferencing_;
 	float* middle_image_;
-
-public slots:
-	void startInference();
-	void stopInference();
 };

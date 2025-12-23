@@ -19,53 +19,32 @@ MainWindow::~MainWindow() {
 
 void MainWindow::initUI() {
     this->setFixedSize(1024, 768);
-    fileMenu_ = menuBar()->addMenu("&Menu");
-    createActions();
 
     QBoxLayout* main_layout = new QHBoxLayout();
     QBoxLayout* sub_layout = new QVBoxLayout();
 
     imageLabel_ = new QLabel(this);
 
-    capButton_ = new QToolButton(this);
-    capButton_->setText("Start Capture");
-    capButton_->setCheckable(true);
-    connect(capButton_, &QToolButton::toggled, this,
+    startButton_ = new QToolButton(this);
+    startButton_->setText("Start cap & inference");
+    startButton_->setCheckable(true);
+    connect(startButton_, &QToolButton::toggled, this,
         [&](bool checked) {
             if (checked) {
-                emit startCameraRequest();
+                emit startCapandInfer();
                 qDebug() << "camera started";
-                capButton_->setText("Stop Camera");
+                startButton_->setText("Stop Cap and Infer");
             }
             else {
-                emit stopCameraRequest();
+                emit stopCapandInfer();
                 qDebug() << "camera stopped";
-                capButton_->setText("Start Camera");
-            }
-        }
-    );
-
-    inferButton_ = new QToolButton(this);
-    inferButton_->setText("Start Inference");
-    inferButton_->setCheckable(true);
-    connect(inferButton_, &QToolButton::toggled, this,
-        [&](bool checked) {
-            if (checked) {
-                emit startInferenceRequest();
-                qDebug() << "Inference started";
-                inferButton_->setText("Stop Inference");
-            }
-            else {
-                emit stopInferenceRequest();
-                qDebug() << "Inference stopped";
-                inferButton_->setText("Start Inference");
+                startButton_->setText("Start Cap and Infer");
             }
         }
     );
     main_layout->addWidget(imageLabel_, 0, Qt::AlignCenter);
     main_layout->addLayout(sub_layout);
-    sub_layout->addWidget(capButton_, 0, Qt::AlignHCenter);
-    sub_layout->addWidget(inferButton_, 0, Qt::AlignHCenter);
+    sub_layout->addWidget(startButton_, 0, Qt::AlignHCenter);
     main_layout->setStretch(0, 4);
     main_layout->setStretch(1, 1);
     sub_layout->setStretch(0, 1);
@@ -77,25 +56,10 @@ void MainWindow::initUI() {
     setCentralWidget(centralWidget);
 }
 
-void MainWindow::createActions() {
-    // 맨 위 메뉴바의 액션을 생성하여 시그널 슬롯 연결
-    exitAction_ = new QAction("E&xit", this);
-    fileMenu_->addAction(exitAction_);
-
-    // connect the signals and slots
-    connect(exitAction_, &QAction::triggered, QApplication::instance(), &QApplication::quit);
-}
-
-void MainWindow::updateFrame(quintptr event, unsigned char* gui_image, cv::Mat frame) {
-    cudaError_t st = cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(event));  // 여기서 CPU 블록
-    if (st != cudaSuccess) {
-        qDebug() << "cudaEventSynchronize failed:" << cudaGetErrorString(st);
-        return;
-    }
-
-    dataLock_->lock();
-    cudaMemcpy(frame.data, gui_image, sizeof(unsigned char) * 1 * 3 * 448 * 448, cudaMemcpyDeviceToHost);
-    dataLock_->unlock();
+void MainWindow::refreshFrame(cv::Mat frame) {
+    //dataLock_->lock();
+    frame.copyTo(currentFrame_);
+    //dataLock_->unlock();
 
     if (!fpsTimer_.isValid()) { fpsTimer_.start(); prevNs_ = fpsTimer_.nsecsElapsed(); }
     else {
@@ -106,20 +70,12 @@ void MainWindow::updateFrame(quintptr event, unsigned char* gui_image, cv::Mat f
     }
 
     QImage frame_qimage(
-        frame.data,
-        frame.cols,
-        frame.rows,
-        frame.step,
+        currentFrame_.data,
+        currentFrame_.cols,
+        currentFrame_.rows,
+        currentFrame_.step,
         QImage::Format_BGR888);
 
     QPixmap pixmap = QPixmap::fromImage(frame_qimage);
     imageLabel_->setPixmap(pixmap);
-}
-
-void MainWindow::writeFrame() {
-
-}
-
-void MainWindow::renderFrame() {
-
 }
