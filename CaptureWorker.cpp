@@ -1,7 +1,7 @@
 #include "CaptureWorker.h"
 #include "MainWindow.h"
 
-CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, cv::Mat frame, QMutex* lock, float** ml_image)
+CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, cv::Mat frame, QMutex* lock, float** ml_image, unsigned char** gui_image)
 : QObject(parent),
 cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
 tmp_(),
@@ -9,20 +9,14 @@ running_(false),
 lock_(lock),
 frame_(frame) {
     ml_image_addr_ = ml_image;
+    gui_image_addr_ = gui_image;
     cudaStreamCreateWithFlags(&preProcessStream, cudaStreamNonBlocking);
     cudaMalloc((void**)&d_capture, sizeof(unsigned char) * 640 * 480 * 2);
-    cudaMalloc((void**)&d_gui_image_BGR, sizeof(unsigned char) * 640 * 480 * 3);
-    cudaMalloc((void**)&d_ml_image_RGB, sizeof(float) * 640 * 480 * 3);
-    cudaMalloc((void**)&d_gui_image_BGR_cropped, sizeof(unsigned char) * 448 * 448 * 3);
-    //cudaMalloc((void**)ml_image_addr_, sizeof(float) * 448 * 448 * 3);
+    cudaEventCreateWithFlags(&preprocess_done_, cudaEventDisableTiming);
 }
 
 CaptureWorker::~CaptureWorker() {
     cudaFree(d_capture);
-    cudaFree(d_gui_image_BGR);
-    cudaFree(d_ml_image_RGB);
-    cudaFree(d_gui_image_BGR_cropped);
-    cudaFree(d_ml_image_RGB_cropped);
     cudaStreamDestroy(preProcessStream);
 }
 
@@ -47,20 +41,14 @@ void CaptureWorker::captureOneFrame() {
         return;
     }
 
-    cv::Mat processed(448,448,CV_8UC3);
+    cv::Mat processed(448, 448, CV_8UC3);
     while (running_) {
         cap_ >> tmp_;
         cudaMemcpy(d_capture, tmp_.data, sizeof(unsigned char) * 640 * 480 * 2, cudaMemcpyHostToDevice);
-        launchYUV2RGB(d_capture, d_gui_image_BGR, d_ml_image_RGB, preProcessStream);
-        launchCROP(d_gui_image_BGR, d_ml_image_RGB, d_gui_image_BGR_cropped, *ml_image_addr_, preProcessStream);
-        cudaStreamSynchronize(preProcessStream);
-        cudaMemcpy(processed.data, d_gui_image_BGR_cropped, sizeof(unsigned char) * 448 * 448 * 3, cudaMemcpyDeviceToHost);
+        launchPREPROCESS(d_capture, *gui_image_addr_, *ml_image_addr_, preProcessStream);
+        cudaEventRecord(preprocess_done_, preProcessStream);
 
-        lock_->lock();
-        processed.copyTo(frame_);
-        lock_->unlock();
-
-        emit frameCaptured();
+        emit frameCaptured(reinterpret_cast<quintptr>(preprocess_done_));
     }
     emit captureFinished();
 }

@@ -10,20 +10,19 @@
 #include <opencv2/dnn/dnn.hpp>
 #include "kernel.cuh"
 
-class InferenceWorker  : public QObject
+class InferenceWorker_Post  : public QObject
 {
 	Q_OBJECT
 
 public:
-	InferenceWorker(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image, float* ml_middle_image);
-	~InferenceWorker();
+	InferenceWorker_Post(QObject *parent, cv::Mat frame, QMutex* lock, float* ml_middle_image);
+	~InferenceWorker_Post();
+    Q_INVOKABLE void run();
 
 private:
-	Q_INVOKABLE void run();
-    Ort::Env ort_env_{ ORT_LOGGING_LEVEL_WARNING, "YOLOv1-backbone" };
+    Ort::Env ort_env_{ ORT_LOGGING_LEVEL_WARNING, "YOLOv1-head" };
     Ort::Session* ort_session_;
     Ort::SessionOptions session_options_;
-    Ort::MemoryInfo memory_info_{ Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU) };
     std::vector<const char*> input_names_;
     std::vector<const char*> output_names_;
     std::string input_name_str_;
@@ -32,14 +31,12 @@ private:
     Ort::Value output_gpu_;
     Ort::RunOptions run_opts_;
 
+    float* middle_image_;
     float** ml_image_addr_;
-    float* ml_middle_image_;
+    float* d_out_;
     Ort::IoBinding* binding_;
-    cudaStream_t ort_stream_{};
+    cudaStream_t head_stream_;
 
     QMutex* inferLock_;
     cv::Mat frame_;
-
-signals:
-    void backboneReady();
 };

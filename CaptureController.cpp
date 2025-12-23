@@ -1,6 +1,6 @@
 #include "CaptureController.h"
 
-CaptureController::CaptureController(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image)
+CaptureController::CaptureController(QObject *parent, cv::Mat frame, QMutex* lock, float** ml_image, unsigned char** gui_image)
 : QObject(parent),
 captureLock_(lock),
 frame_(frame) {
@@ -9,6 +9,7 @@ frame_(frame) {
 		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1"
 		"! appsink drop=true max-buffers=1 sync=false";
 	ml_image_ = ml_image;
+	gui_image_ = gui_image;
 }
 
 CaptureController::~CaptureController() {
@@ -16,7 +17,7 @@ CaptureController::~CaptureController() {
 
 void CaptureController::createCamera() {
 	thread_ = new QThread(this);
-	worker_ = new CaptureWorker(nullptr, pipeline_, frame_, captureLock_, ml_image_);
+	worker_ = new CaptureWorker(nullptr, pipeline_, frame_, captureLock_, ml_image_, gui_image_);
 
 	connect(worker_, &CaptureWorker::captureFinished, this, &CaptureController::deleteAfterWait);
 

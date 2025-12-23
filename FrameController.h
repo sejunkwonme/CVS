@@ -27,13 +27,13 @@ private:
 	QMutex* lock_;
 	CaptureController* capC_;
 	InferenceController* inferC_;
-	MainWindow* mainW_;
-	float* ml_image_;
+	MainWindow* mainW_; // 시그널 보내기 위한 메인윈도우 클래스 포인터
+	float* ml_image_; //전처리된 ml 이미지 담는 디바이스 포인터
+	unsigned char* gui_image_; // 전처리된 gui 이미지 담는 디바이스 포인터
 
 public slots:
-	void passThroughToGUI();
+	void passThroughToGUI(quintptr event);
 
 signals:
-	void frameMade(cv::Mat frame);
-	void startWorker();
+	void frameMade(quintptr event, unsigned char* gui_image, cv::Mat frame_);
 };

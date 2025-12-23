@@ -90,6 +90,7 @@ qt_add_executable(${PROJECT_NAME}
     InferenceWorker.h InferenceWorker.cpp
     FrameController.h FrameController.cpp
     FrameWorker.h FrameWorker.cpp
+    InferenceWorker_Post.h InferenceWorker_Post.cpp
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets

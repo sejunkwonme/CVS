@@ -11,7 +11,7 @@ class CaptureWorker  : public QObject {
 	Q_OBJECT
 
 public:
-	CaptureWorker(QObject *parent, std::string pieline, cv::Mat frame, QMutex* lock, float** ml_image);
+	CaptureWorker(QObject *parent, std::string pieline, cv::Mat frame, QMutex* lock, float** ml_image, unsigned char** gui_image);
 	~CaptureWorker();
 	bool running_;
 
@@ -23,15 +23,14 @@ private:
 	cv::Mat tmp_;
 	QMutex* lock_;
 	cv::Mat frame_;
+
 	cudaStream_t preProcessStream;
+	cudaEvent_t preprocess_done_;
 	unsigned char* d_capture;
-	unsigned char* d_gui_image_BGR;
-	float* d_ml_image_RGB;
-	unsigned char* d_gui_image_BGR_cropped;
-	float* d_ml_image_RGB_cropped;
 	float** ml_image_addr_;
+	unsigned char** gui_image_addr_;
 	
 signals:
-	void frameCaptured();
+	void frameCaptured(quintptr event);
 	void captureFinished();
 };

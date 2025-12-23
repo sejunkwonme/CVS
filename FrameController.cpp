@@ -7,10 +7,13 @@ frame_(cv::Mat(448,448,CV_8UC3)),
 lock_(new QMutex()),
 mainW_(mainW) {
 	cudaMalloc((void**)&ml_image_, sizeof(float) * 1 * 3 * 448 * 448);
+	cudaMalloc((void**)&gui_image_, sizeof(unsigned char) * 1 * 3 * 448 * 448);
 }
 
 FrameController::~FrameController() {
 	destroyWorker();
+	cudaFree(ml_image_);
+	cudaFree(gui_image_);
 }
 
 void FrameController::createWorker() {
@@ -31,12 +34,12 @@ void FrameController::destroyWorker() {
 	worker_ = nullptr;
 }
 
-void FrameController::passThroughToGUI() {
-	emit frameMade(frame_);
+void FrameController::passThroughToGUI(quintptr event) {
+	emit frameMade(event, gui_image_, frame_);
 }
 
 void FrameController::initialize() {
-	capC_ = new CaptureController(this, frame_, lock_, &ml_image_);
+	capC_ = new CaptureController(this, frame_, lock_, &ml_image_, &gui_image_);
 	inferC_ = new InferenceController(this, frame_, lock_, &ml_image_);
 	createWorker();
 	connect(mainW_, &MainWindow::startCameraRequest,

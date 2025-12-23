@@ -1,6 +1,5 @@
 #include "MainWindow.h"
 #include "FrameController.h"
-
 #include <QApplication>
 #include <QTimer>
 

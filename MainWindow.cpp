@@ -86,33 +86,40 @@ void MainWindow::createActions() {
     connect(exitAction_, &QAction::triggered, QApplication::instance(), &QApplication::quit);
 }
 
-void MainWindow::updateFrame(cv::Mat mat) {
-    if (!fpsTimer_.isValid()) {
-        fpsTimer_.start();
-        prevNs_ = fpsTimer_.nsecsElapsed();
+void MainWindow::updateFrame(quintptr event, unsigned char* gui_image, cv::Mat frame) {
+    cudaError_t st = cudaEventSynchronize(reinterpret_cast<cudaEvent_t>(event));  // 여기서 CPU 블록
+    if (st != cudaSuccess) {
+        qDebug() << "cudaEventSynchronize failed:" << cudaGetErrorString(st);
+        return;
     }
+
+    dataLock_->lock();
+    cudaMemcpy(frame.data, gui_image, sizeof(unsigned char) * 1 * 3 * 448 * 448, cudaMemcpyDeviceToHost);
+    dataLock_->unlock();
+
+    if (!fpsTimer_.isValid()) { fpsTimer_.start(); prevNs_ = fpsTimer_.nsecsElapsed(); }
     else {
         qint64 nowNs = fpsTimer_.nsecsElapsed();
         qint64 dtNs = nowNs - prevNs_;
         prevNs_ = nowNs;
-
-        if (dtNs > 0) {
-            double fps = 1e9 / static_cast<double>(dtNs);
-            qDebug() << "[updateFrame] FPS =" << fps;
-        }
+        if (dtNs > 0) qDebug() << "[updateFrame] FPS =" << (1e9 / double(dtNs));
     }
 
-    dataLock_->lock();
-    currentFrame_ = mat.clone();
-    dataLock_->unlock();
-
-    QImage frame(
-        currentFrame_.data,
-        currentFrame_.cols,
-        currentFrame_.rows,
-        currentFrame_.step,
+    QImage frame_qimage(
+        frame.data,
+        frame.cols,
+        frame.rows,
+        frame.step,
         QImage::Format_BGR888);
 
-    QPixmap pixmap = QPixmap::fromImage(frame);
+    QPixmap pixmap = QPixmap::fromImage(frame_qimage);
     imageLabel_->setPixmap(pixmap);
+}
+
+void MainWindow::writeFrame() {
+
+}
+
+void MainWindow::renderFrame() {
+
 }

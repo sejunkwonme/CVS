@@ -20,10 +20,10 @@ private:
 	InferenceController* inferC_;
 
 signals:
-	void withInference();
-	void noInference();
-	void frameReady();
+	void withInference(quintptr event);
+	void noInference(quintptr event);
+	void frameReady(quintptr event);
 
 public slots:
-	void finalFrameGenerated();
+	void finalFrameGenerated(quintptr event);
 };
