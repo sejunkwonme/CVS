@@ -43,7 +43,7 @@ void CaptureWorker::captureOneFrame() {
         cap_ >> tmp_;
         cudaMemcpy(d_capture, tmp_.data, sizeof(unsigned char) * 640 * 480 * 2, cudaMemcpyHostToDevice);
         launchPREPROCESS(d_capture, *gui_image_addr_, *ml_image_addr_, preProcessStream);
-        cudaStreamSynchronize(preProcessStream);
+        //cudaStreamSynchronize(preProcessStream);
 
         emit frameCaptured(frame_count_);
         frame_count_++;

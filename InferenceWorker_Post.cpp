@@ -26,7 +26,7 @@ InferenceWorker_Post::InferenceWorker_Post(QObject *parent, float* ml_middle_ima
 		_putenv_s("CUDA_VISIBLE_DEVICES", buf);
 	}
 
-	session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_BASIC);
+	session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
 	//session_options_.SetIntraOpNumThreads(1);
 	//session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
@@ -34,12 +34,13 @@ InferenceWorker_Post::InferenceWorker_Post(QObject *parent, float* ml_middle_ima
 	OrtCUDAProviderOptions cuda_options{};
 	cuda_options.device_id = 0;
 	cuda_options.has_user_compute_stream = 1;
-	cuda_options.user_compute_stream = (void*)head_stream_;
+	cuda_options.user_compute_stream = head_stream_;
 	cuda_options.do_copy_in_default_stream = 0;
+	//cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
 	session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
 	try {
-		const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-conv4-detection.onnx";
+		const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-head.sim.onnx";
 		ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
 		qDebug() << "Session created successfully (CUDA).";
 	}
@@ -47,7 +48,7 @@ InferenceWorker_Post::InferenceWorker_Post(QObject *parent, float* ml_middle_ima
 		qCritical() << "CUDA session creation failed:" << e.what();
 		qCritical() << "Falling back to CPU provider.";
 		session_options_ = Ort::SessionOptions{};
-		const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-conv4-detection.onnx";
+		const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-head.sim.onnx";
 		ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
 	}
 
@@ -97,92 +98,10 @@ InferenceWorker_Post::~InferenceWorker_Post() {
 
 }
 
-void InferenceWorker_Post::run(quintptr event, uint64_t framecount) {
-	constexpr int S = 7, B = 2, C = 20;
-	constexpr int H = 448, W = 448;
-	float preds[1470];
-
-	// backboneEvent_ 가 끝나길 기다린다 gpu에서
-	cudaError_t st = cudaStreamWaitEvent(head_stream_,reinterpret_cast<cudaEvent_t>(event));  // 여기서 CPU 블록
-	if (st != cudaSuccess) {
-		qDebug() << "cudaEventSynchronize failed:" << cudaGetErrorString(st);
-		return;
-	}
+void InferenceWorker_Post::run(uint64_t framecount) {
+	//binding_->SynchronizeInputs();
 	ort_session_->Run(Ort::RunOptions{nullptr}, *binding_);
-	cudaStreamSynchronize(head_stream_);
-	cudaMemcpy(preds, d_out_, sizeof(float) * 1470, cudaMemcpyDeviceToHost);
-	
-	std::vector<std::vector<cv::Rect>> boxes(20);
-	std::vector<std::vector<float>> score(20);
-	std::vector<std::vector<int>> indices(20);
-	std::vector<cv::Rect2f> finalBoxes;
-	std::vector<int> finalclasses;
-	cv::Mat scoreMatrix(20, 98, CV_32F, cv::Scalar(0));
-
-	constexpr float score_thresh = 0.2f;
-	constexpr float nms_thresh = 0.6f;
-
-	for (int cidx = 0; cidx < 20; cidx++) {
-		for (int i = 0; i < S; ++i) {
-			for (int j = 0; j < S; ++j) {
-				const int offset = S * S;
-				float boxScore1 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (20 * offset)];
-				float boxScore2 = preds[(i * S + j) + (cidx * offset)] * preds[(i * S + j) + (25 * offset)];
-				float x1, y1, w1, h1;
-				x1 = ((preds[(i * S + j) + (21 * offset)] + j) / S) * 448;
-				y1 = ((preds[(i * S + j) + (22 * offset)] + i) / S) * 448;
-				w1 = preds[(i * S + j) + (23 * offset)] * 448;
-				h1 = preds[(i * S + j) + (24 * offset)] * 448;
-				float x2, y2, w2, h2;
-				x2 = ((preds[(i * S + j) + (26 * offset)] + j) / S) * 448;
-				y2 = ((preds[(i * S + j) + (27 * offset)] + i) / S) * 448;
-				w2 = preds[(i * S + j) + (28 * offset)] * 448;
-				h2 = preds[(i * S + j) + (29 * offset)] * 448;
-
-				cv::Rect2f box1(
-					x1 - (w1 / 2.0f),
-					y1 - (h1 / 2.0f),
-					w1,
-					h1
-				);
-
-				cv::Rect2f box2(
-					x2 - (w2 / 2.0f),
-					y2 - (h2 / 2.0f),
-					w2,
-					h2
-				);
-
-				boxes[cidx].push_back(box1);
-				boxes[cidx].push_back(box2);
-				score[cidx].push_back(boxScore1);
-				score[cidx].push_back(boxScore2);
-			}
-		}
-		cv::dnn::NMSBoxes(
-			boxes[cidx],
-			score[cidx],
-			score_thresh,
-			nms_thresh,
-			indices[cidx]
-		);
-		for (int c = 0; c < 20; c++) {
-			for (int index : indices[c]) {
-				scoreMatrix.at<float>(c, index) = score[c][index];
-			}
-		}
-	}
-
-	for (int boxidx = 0 ; boxidx < S * S * 2 ; boxidx++) {
-		double maxScore;
-		int maxindex[2];
-		cv::minMaxIdx(scoreMatrix.col(boxidx), nullptr, &maxScore, nullptr, maxindex);
-
-		if (maxScore > 0.0) {
-			finalBoxes.push_back(boxes[maxindex[0]][boxidx]);
-			finalclasses.push_back(maxindex[0]);
-		}
-	}
-
-	emit boundingboxReady(finalBoxes, finalclasses, framecount);
+	//cudaStreamSynchronize(head_stream_);
+	//binding_->SynchronizeOutputs();
+	emit boundingboxReady(d_out_, framecount);
 }

@@ -22,7 +22,7 @@ private:
 	void createWorker();
 	void destroyWorker();
 
-	cv::Mat frame_[2];
+	cv::Mat frame_[4];
 	QThread* thread_;
 	FrameWorker* worker_;
 	QMutex* lock_;

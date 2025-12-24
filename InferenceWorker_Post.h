@@ -13,7 +13,7 @@ class InferenceWorker_Post  : public QObject {
 Q_OBJECT
 
 public slots:
-    Q_INVOKABLE void run(quintptr e, uint64_t);
+    Q_INVOKABLE void run(uint64_t);
 
 public:
 	InferenceWorker_Post(QObject *parent, float* ml_middle_image);
@@ -36,5 +36,5 @@ private:
     float* d_out_;
     
 signals:
-    void boundingboxReady(std::vector<cv::Rect2f>, std::vector<int>, uint64_t);
+    void boundingboxReady(float*, uint64_t);
 };

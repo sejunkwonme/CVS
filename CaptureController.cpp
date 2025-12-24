@@ -3,7 +3,7 @@
 CaptureController::CaptureController(QObject *parent, float** ml_image, unsigned char** gui_image)
 : QObject(parent) {
 	pipeline_ =
-		"mfvideosrc device-index=0 "
+		"mfvideosrc device-index=1 "
 		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1"
 		"! appsink drop=true max-buffers=1 sync=false";
 	ml_image_ = ml_image;

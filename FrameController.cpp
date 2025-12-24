@@ -7,6 +7,8 @@ lock_(new QMutex()),
 mainW_(mainW) {
 	frame_[0] = cv::Mat(448, 448, CV_8UC3);
 	frame_[1] = cv::Mat(448, 448, CV_8UC3);
+	frame_[2] = cv::Mat(448, 448, CV_8UC3);
+	frame_[3] = cv::Mat(448, 448, CV_8UC3);
 	cudaMalloc((void**)&ml_image_, sizeof(float) * 1 * 3 * 448 * 448);
 	cudaMalloc((void**)&gui_image_, sizeof(unsigned char) * 1 * 3 * 448 * 448);
 }

@@ -22,7 +22,7 @@ ml_middle_image_(ml_middle_image) {
     }
     qDebug() << "Selected CUDA device:" << selected_id;
 
-    session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_BASIC);
+    session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     //session_options_.SetIntraOpNumThreads(1);
     //session_options_.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
 
@@ -30,19 +30,20 @@ ml_middle_image_(ml_middle_image) {
 
     cuda_options.device_id = 0;
     cuda_options.has_user_compute_stream = 1;
-    cuda_options.user_compute_stream = (void*)backboneStream_;
+    cuda_options.user_compute_stream = backboneStream_;
     cuda_options.do_copy_in_default_stream = 0;
+    //cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
 
     try {
-        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-conv20.onnx";
+        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-backbone.sim.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
         qDebug() << "Session created successfully (CUDA).";
     } catch (const Ort::Exception& e) {
         qCritical() << "CUDA session creation failed:" << e.what();
         qCritical() << "Falling back to CPU provider.";
         session_options_ = Ort::SessionOptions{};
-        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-conv20.onnx";
+        const wchar_t* model_w = L"D:/Repo/Yolov1/thirdmodel-backbone.sim.onnx";
         ort_session_ = new Ort::Session(ort_env_, model_w, session_options_);
     }
 
@@ -86,8 +87,6 @@ ml_middle_image_(ml_middle_image) {
     binding_ = new Ort::IoBinding(*ort_session_);
     binding_->BindInput(input_name_str_.c_str(), input_gpu_);
     binding_->BindOutput(output_name_str_.c_str(), output_gpu_);
-
-    cudaEventCreateWithFlags(&backboneEvent_, cudaEventDisableTiming);
 }
 
 InferenceWorker::~InferenceWorker() {
@@ -101,7 +100,9 @@ InferenceWorker::~InferenceWorker() {
 }
 
 void InferenceWorker::run(uint64_t framecount) {
+    //binding_->SynchronizeInputs();
 	ort_session_->Run(Ort::RunOptions{nullptr}, *binding_);
-    cudaEventRecord(backboneEvent_, backboneStream_);
-    emit backboneReady(reinterpret_cast<quintptr>(backboneEvent_), framecount);
+    //cudaEventRecord(backboneEvent_, backboneStream_);
+    //binding_->SynchronizeOutputs();
+    emit backboneReady(framecount);
 }

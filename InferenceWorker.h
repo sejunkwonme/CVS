@@ -35,8 +35,7 @@ private:
     float* ml_middle_image_;
     Ort::IoBinding* binding_;
     cudaStream_t backboneStream_;
-    cudaEvent_t backboneEvent_;
 
 signals:
-    void backboneReady(quintptr, uint64_t);
+    void backboneReady(uint64_t);
 };
