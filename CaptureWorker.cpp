@@ -1,7 +1,7 @@
 #include "CaptureWorker.h"
 #include "MainWindow.h"
 
-CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, float** ml_image, unsigned char** gui_image)
+CaptureWorker::CaptureWorker(QObject* parent, std::string pipeline, float** ml_image, unsigned char** gui_image, QMutex* lock)
 : QObject(parent),
 cap_(cv::VideoCapture(pipeline, cv::CAP_GSTREAMER)),
 tmp_(),
@@ -11,6 +11,7 @@ running_(false) {
     cudaStreamCreateWithFlags(&preProcessStream, cudaStreamNonBlocking);
     cudaMalloc((void**)&d_capture, sizeof(unsigned char) * 640 * 480 * 2);
     frame_count_ = 0;
+    caplock_ = lock;
 }
 
 CaptureWorker::~CaptureWorker() {
@@ -34,10 +35,12 @@ void CaptureWorker::run() {
 }
 
 void CaptureWorker::captureOneFrame() {
+    caplock_->lock();
     if (!running_) {
         cap_.release();
         return;
     }
+    caplock_->unlock();
 
     while (running_) {
         cap_ >> tmp_;

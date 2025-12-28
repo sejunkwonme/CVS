@@ -1,9 +1,10 @@
 #include "CaptureController.h"
 
-CaptureController::CaptureController(QObject *parent, float** ml_image, unsigned char** gui_image)
-: QObject(parent) {
+CaptureController::CaptureController(QObject *parent, float** ml_image, unsigned char** gui_image, QMutex* lock)
+: QObject(parent),
+captureLock_(lock){
 	pipeline_ =
-		"mfvideosrc device-index=1 "
+		"mfvideosrc device-index=0 "
 		"! video/x-raw,format=YUY2,width=640,height=480,framerate=30/1"
 		"! appsink drop=true max-buffers=1 sync=false";
 	ml_image_ = ml_image;
@@ -16,9 +17,9 @@ CaptureController::~CaptureController() {
 
 void CaptureController::createCamera() {
 	thread_ = new QThread(this);
-	worker_ = new CaptureWorker(nullptr, pipeline_, ml_image_, gui_image_);
+	worker_ = new CaptureWorker(nullptr, pipeline_, ml_image_, gui_image_, captureLock_);
 
-	connect(worker_, &CaptureWorker::captureFinished, this, &CaptureController::deleteAfterWait);
+	//connect(worker_, &CaptureWorker::captureFinished, this, &CaptureController::deleteAfterWait);
 
 	worker_->moveToThread(thread_);
 	thread_->start();
@@ -41,7 +42,9 @@ void CaptureController::startCapture() {
 }
 
 void CaptureController::stopCapture() {
+	captureLock_->lock();
 	worker_->running_ = false;
+	captureLock_->unlock();
 }
 
 void CaptureController::deleteAfterWait() {

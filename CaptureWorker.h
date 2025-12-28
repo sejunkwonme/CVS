@@ -4,15 +4,17 @@
 #include <QDebug>
 #include <opencv2/opencv.hpp>
 #include <cuda_runtime.h>
+#include <Qmutex>
 #include "kernel.cuh"
 
 class CaptureWorker  : public QObject {
 Q_OBJECT
 
 public:
-	CaptureWorker(QObject *parent, std::string pieline, float** ml_image, unsigned char** gui_image);
+	CaptureWorker(QObject *parent, std::string pieline, float** ml_image, unsigned char** gui_image, QMutex* lock);
 	~CaptureWorker();
 	bool running_;
+	QMutex* caplock_;
 
 private:
 	Q_INVOKABLE void run();

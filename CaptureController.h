@@ -10,16 +10,17 @@ class CaptureController : public QObject {
 Q_OBJECT
 
 public:
-	CaptureController(QObject* parent, float** ml_image, unsigned char** gui_image);
+	CaptureController(QObject* parent, float** ml_image, unsigned char** gui_image, QMutex* lock);
 	~CaptureController();
 	CaptureWorker* worker_;
+	QMutex* captureLock_;
 
 private:
 	void createCamera();
 	void destroyCamera();
 
 	QThread* thread_;
-	QMutex* captureLock_;
+	
 	std::string pipeline_;
 	cv::Mat frame_;
 	float** ml_image_;

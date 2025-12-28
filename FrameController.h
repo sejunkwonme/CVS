@@ -25,7 +25,7 @@ private:
 	cv::Mat frame_[4];
 	QThread* thread_;
 	FrameWorker* worker_;
-	QMutex* lock_;
+	QMutex* lock_;	
 	CaptureController* capC_;
 	InferenceController* inferC_;
 	MainWindow* mainW_; // 시그널 보내기 위한 메인윈도우 클래스 포인터

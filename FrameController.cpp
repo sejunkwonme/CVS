@@ -38,7 +38,7 @@ void FrameController::destroyWorker() {
 }
 
 void FrameController::initialize() {
-	capC_ = new CaptureController(this, &ml_image_, &gui_image_);
+	capC_ = new CaptureController(this, &ml_image_, &gui_image_, lock_);
 	inferC_ = new InferenceController(this, &ml_image_);
 	createWorker();
 	connect(mainW_, &MainWindow::startCapandInfer,
